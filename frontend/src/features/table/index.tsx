@@ -79,6 +79,9 @@ function Table({current}: { current: PipeTable }) {
               v1.localeCompare(v2)
           }),
         render: value => {
+          if (value === null) {
+            return value;
+          }
           if (typeof value === 'object') {
             return <ReactJson
               name={false}
