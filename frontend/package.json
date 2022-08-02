@@ -2,7 +2,6 @@
   "name": "pipe",
   "version": "0.1.0",
   "private": true,
-  "proxy": "https://datapipe-example-api-hzkr3iwwhq-ez.a.run.app",
   "dependencies": {
     "@rescripts/cli": "^0.0.16",
     "@types/node": "^16.11.45",
