@@ -1,3 +1,7 @@
+# 0.1.2
+
+* New CLI commands: `table list`, `table reset-metadata`
+
 # 0.1.1
 
 * Fixes [#2](https://github.com/epoch8/datapipe-app/issues/2),
