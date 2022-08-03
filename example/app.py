@@ -8,6 +8,7 @@ from datapipe.compute import DataStore, Catalog, Table, Pipeline, build_compute
 from datapipe.store.database import TableStoreDB, DBConn
 
 DB_CONN_URI = os.environ.get('DB_CONN_URI', "sqlite:///store.sqlite")
+# DB_CONN_URI = "postgresql://datapipe_example_api_data:OGBqBr4rW7vAr6Hv@rc1b-hl1x61akq81cvefa.mdb.yandexcloud.net:6432/datapipe_example_api_data"
 
 # dbconn = DBConn("sqlite:///store.sqlite")
 # dbconn = DBConn("sqlite:///:memory:")
