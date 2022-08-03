@@ -6,13 +6,14 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from datapipe.compute import build_compute
+from datapipe.datatable import DataStore
+from datapipe.compute import build_compute, Catalog, Pipeline
 
 import datapipe_app.api_v1alpha1 as api_v1alpha1
 
 
 class DatapipeApp(FastAPI):
-    def __init__(self, ds, catalog, pipeline):
+    def __init__(self, ds: DataStore, catalog: Catalog, pipeline: Pipeline):
         FastAPI.__init__(self)
 
         self.ds = ds
@@ -32,7 +33,14 @@ class DatapipeApp(FastAPI):
         api_v1_app = api_v1alpha1.DatpipeAPIv1(ds, catalog, pipeline, self.steps)
 
         self.mount("/api/v1alpha1", api_v1_app, name="api_v1")
-        self.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "frontend/"), html=True), name="static")
+        self.mount(
+            "/",
+            StaticFiles(
+                directory=os.path.join(os.path.dirname(__file__), "frontend/"),
+                html=True,
+            ),
+            name="static",
+        )
 
 
 def setup_logging(level=logging.INFO):

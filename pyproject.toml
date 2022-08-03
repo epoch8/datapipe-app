@@ -29,6 +29,7 @@ datapipe = 'datapipe_app.cli:cli'
 [tool.poetry.dev-dependencies]
 mypy = "^0.961"
 alembic = "^1.8.1"
+black = "^22.6.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
