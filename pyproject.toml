@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datapipe-app"
-version = "0.1.2"
+version = "0.1.3"
 description = ""
 authors = ["Andrey Tatarinov <a@tatarinov.co>"]
 
@@ -16,7 +16,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-fastapi = "^0.78.0"
+fastapi = ">=0.75.0"
 uvicorn = {extras = ["standard"], version = "^0.18.2"}
 click = ">=7.1.2"
 

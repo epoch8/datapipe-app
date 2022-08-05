@@ -1,3 +1,7 @@
+# 0.1.3
+
+* Relax fastapi requirements (>= 0.75)
+
 # 0.1.2
 
 * New CLI commands: `table list`, `table reset-metadata`
