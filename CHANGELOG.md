@@ -1,6 +1,10 @@
+# 0.1.4
+
+* Relax `uvicorn` requirements (>= 0.17)
+
 # 0.1.3
 
-* Relax fastapi requirements (>= 0.75)
+* Relax `fastapi` requirements (>= 0.75)
 
 # 0.1.2
 
