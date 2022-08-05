@@ -4,6 +4,8 @@ version = "0.1.4"
 description = ""
 authors = ["Andrey Tatarinov <a@tatarinov.co>"]
 
+readme = "README.md"
+
 # build = "build.py"
 
 packages = [
