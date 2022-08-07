@@ -28,6 +28,18 @@ catalog = Catalog(
                 create_table=False,
             )
         ),
+        "events2": Table(
+            store=TableStoreDB(
+                name="events2",
+                dbconn=dbconn,
+                data_sql_schema=[
+                    Column("user_id", Integer(), primary_key=True),
+                    Column("event_id", Integer(), primary_key=True),
+                    Column("event", JSON()),
+                ],
+                create_table=False,
+            )
+        ),
         "user_profile": Table(
             store=TableStoreDB(
                 name="user_profile",
@@ -40,9 +52,32 @@ catalog = Catalog(
                 create_table=False,
             )
         ),
+        "user_profile2": Table(
+            store=TableStoreDB(
+                name="user_profile2",
+                dbconn=dbconn,
+                data_sql_schema=[
+                    Column("user_id", Integer(), primary_key=True),
+                    Column("offer_clicks", JSON()),
+                    Column("events_count", Integer()),
+                ],
+                create_table=False,
+            )
+        ),
         "user_lang": Table(
             store=TableStoreDB(
                 name="user_lang",
+                dbconn=dbconn,
+                data_sql_schema=[
+                    Column("user_id", Integer(), primary_key=True),
+                    Column("lang", String(length=100)),
+                ],
+                create_table=False,
+            )
+        ),
+        "user_lang2": Table(
+            store=TableStoreDB(
+                name="user_lang2",
                 dbconn=dbconn,
                 data_sql_schema=[
                     Column("user_id", Integer(), primary_key=True),
@@ -90,6 +125,11 @@ pipeline = Pipeline(
             agg_profile,
             inputs=["events"],
             outputs=["user_profile", "user_lang"],
+        ),
+        BatchTransform(
+            agg_profile,
+            inputs=["events2"],
+            outputs=["user_profile2", "user_lang2"]
         )
     ]
 )
