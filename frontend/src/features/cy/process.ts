@@ -29,7 +29,7 @@ function reprocess_data(data: GraphData) {
     }
 
     for (const pipe of data.pipeline) {
-      const nodeName = pipe.name || pipe.func || 'unknown node';
+      const nodeName = pipe.id;
       if (pipe.type !== 'meta') {
         nodes.set(nodeName, {
           ...omit(pipe, ['inputs', 'outputs'])

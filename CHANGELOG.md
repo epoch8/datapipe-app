@@ -1,3 +1,8 @@
+# 0.1.5
+
+* Fix [#12](https://github.com/epoch8/datapipe-app/issues/12) - transform nodes
+  with the same name are incorrectly merged into one.
+
 # 0.1.4
 
 * Relax `uvicorn` requirements (>= 0.17)

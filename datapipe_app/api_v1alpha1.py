@@ -1,7 +1,8 @@
+from hashlib import md5
 from typing import List, Dict, Optional
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import pandas as pd
 
@@ -9,31 +10,36 @@ from datapipe.types import ChangeList
 from datapipe.compute import run_steps, run_steps_changelist, build_compute
 
 
+class PipelineStepResponse(BaseModel):
+    id_: str = Field(alias="id")
+    type_: str = Field(alias="type")
+    name: str
+    inputs: List[str]
+    outputs: List[str]
+
+
+class TableResponse(BaseModel):
+    name: str
+
+    indexes: List[str]
+
+    size: int
+    store_class: str
+
+
+class GraphResponse(BaseModel):
+    catalog: Dict[str, TableResponse]
+    pipeline: List[PipelineStepResponse]
+
+
+class UpdateDataRequest(BaseModel):
+    table_name: str
+    upsert: Optional[List[Dict]] = None
+    # delete: List[Dict] = None
+
+
 def DatpipeAPIv1(ds, catalog, pipeline, steps) -> FastAPI:
     app = FastAPI()
-
-    class PipelineStepResponse(BaseModel):
-        type: str
-        name: str
-        inputs: List[str]
-        outputs: List[str]
-
-    class TableResponse(BaseModel):
-        name: str
-
-        indexes: List[str]
-
-        size: int
-        store_class: str
-
-    class GraphResponse(BaseModel):
-        catalog: Dict[str, TableResponse]
-        pipeline: List[PipelineStepResponse]
-
-    class UpdateDataRequest(BaseModel):
-        table_name: str
-        upsert: Optional[List[Dict]] = None
-        # delete: List[Dict] = None
 
     @app.get("/graph", response_model=GraphResponse)
     def get_graph() -> GraphResponse:
@@ -47,20 +53,27 @@ def DatpipeAPIv1(ds, catalog, pipeline, steps) -> FastAPI:
                 store_class=tbl.table_store.__class__.__name__,
             )
 
+        def pipeline_step_response(step):
+            inputs = [i.name for i in step.get_input_dts()]
+            outputs = [i.name for i in step.get_output_dts()]
+            inputs_join = ",".join(inputs)
+            outputs_join = ",".join(outputs)
+            id_ = f"{step.name}({inputs_join})->({outputs_join})"
+
+            return PipelineStepResponse(
+                id=id_,
+                type="transform",
+                name=step.get_name(),
+                inputs=inputs,
+                outputs=outputs,
+            )
+
         return GraphResponse(
             catalog={
                 table_name: table_response(table_name)
                 for table_name in catalog.catalog.keys()
             },
-            pipeline=[
-                PipelineStepResponse(
-                    type="transform",
-                    name=step.get_name(),
-                    inputs=[i.name for i in step.get_input_dts()],
-                    outputs=[i.name for i in step.get_output_dts()],
-                )
-                for step in steps
-            ],
+            pipeline=[pipeline_step_response(step) for step in steps],
         )
 
     @app.post("/update-data")
