@@ -1,3 +1,8 @@
+# 0.1.6
+
+* Fix [#13](https://github.com/epoch8/datapipe-app/issues/13) - boolean values
+  visualization.
+
 # 0.1.5
 
 * Fix [#12](https://github.com/epoch8/datapipe-app/issues/12) - transform nodes

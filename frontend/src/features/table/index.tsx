@@ -90,6 +90,9 @@ function Table({current}: { current: PipeTable }) {
               displayDataTypes={false}
               src={value}/>
           }
+          if (typeof value === 'boolean') {
+            return value ? 'True' : 'False';
+          }
           return value;
         }
       }

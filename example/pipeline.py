@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import JSON, Column, Integer, String
+from sqlalchemy import JSON, Column, Integer, String, Boolean
 
 import pandas as pd
 
@@ -48,6 +48,7 @@ catalog = Catalog(
                     Column("user_id", Integer(), primary_key=True),
                     Column("offer_clicks", JSON()),
                     Column("events_count", Integer()),
+                    Column("active", Boolean()),
                 ],
                 create_table=False,
             )
@@ -60,6 +61,7 @@ catalog = Catalog(
                     Column("user_id", Integer(), primary_key=True),
                     Column("offer_clicks", JSON()),
                     Column("events_count", Integer()),
+                    Column("active", Boolean()),
                 ],
                 create_table=False,
             )
@@ -103,6 +105,7 @@ def agg_profile(df: pd.DataFrame) -> pd.DataFrame:
                     x["offer_id"] for x in grp["event"] if x["event_type"] == "click"
                 ],
                 "events_count": len(grp),
+                "active": True,
             }
         )
 
