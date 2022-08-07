@@ -37,11 +37,11 @@ function Cy() {
       const {nodes, edges} = reprocess_data(data);
       const elements: Cytoscape.ElementDefinition[] =
         Array.from(nodes.entries())
-          .map(([name, options]) => ({
+          .map(([nodeId, options]) => ({
             selectable: options.type !== 'group',
             data: {
-              id: name,
-              label: name,
+              id: nodeId,
+              label: options.name,
               parent: options.parent,
               type: options.type,
               indexes: options.indexes,
