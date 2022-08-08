@@ -1,6 +1,6 @@
 # datapipe-app
 
-`datapipe-app` implements two aspects to make every datapipe pipeline to work as
+`datapipe-app` implements two aspects to make every [datapipe](https://github.com/epoch8/datapipe) pipeline to work as
 an application:
 
 1. REST API + debug UI based of FastAPI
