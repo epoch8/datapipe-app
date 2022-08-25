@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from hashlib import md5
 from typing import List, Dict, Optional
 
@@ -111,13 +112,20 @@ def DatpipeAPIv1(ds, catalog, pipeline, steps) -> FastAPI:
 
         meta_df = dt.get_metadata()
 
+        data = dt.get_data(
+            meta_df.iloc[page*page_size:(page + 1)*page_size]
+        )
+        if 'image_data' in data:
+            data['image_data'] = data['image_data'].apply(lambda image_data: image_data.json())
+        data.fillna('None', inplace=True)
+
+        data = data.to_dict(orient="records")
+
         return GetDataResponse(
             page=page,
             page_size=page_size,
             total=len(meta_df),
-            data=dt.get_data(
-                meta_df.iloc[page * page_size : (page + 1) * page_size]
-            ).to_dict(orient="records"),
+            data=data,
         )
 
     class FocusFilter(BaseModel):

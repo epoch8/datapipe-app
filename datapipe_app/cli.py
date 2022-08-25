@@ -1,6 +1,7 @@
 import sys
 import os.path
 import click
+from datapipe.types import ChangeList
 
 from opentelemetry import trace  # type: ignore
 from opentelemetry.sdk.trace import TracerProvider  # type: ignore
@@ -136,3 +137,16 @@ def run(pipeline: str) -> None:
     app = load_pipeline(pipeline)
 
     run_steps(app.ds, app.steps)
+
+
+# @cli.command()
+# @click.option("--pipeline", type=click.STRING, default="app")
+# def run_changelist(pipeline: str) -> None:
+#     from datapipe.compute import run_steps
+#     from datapipe.compute import run_steps_changelist
+
+#     app = load_pipeline(pipeline)
+
+#     run_steps(app.ds, app.steps_generate)
+#     changelist = ChangeList()
+#     run_steps_changelist(app.ds, app.steps_changelist, changelist)

@@ -1,6 +1,7 @@
 import sys
 import os.path
 import logging
+# from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +14,14 @@ import datapipe_app.api_v1alpha1 as api_v1alpha1
 
 
 class DatapipeApp(FastAPI):
-    def __init__(self, ds: DataStore, catalog: Catalog, pipeline: Pipeline):
+    def __init__(
+        self,
+        ds: DataStore,
+        catalog: Catalog,
+        pipeline: Pipeline
+        # pipeline_generate: Optional[Pipeline] = None,
+        # pipeline_changelist: Optional[Pipeline] = None
+    ):
         FastAPI.__init__(self)
 
         self.ds = ds
@@ -21,6 +29,15 @@ class DatapipeApp(FastAPI):
         self.pipeline = pipeline
 
         self.steps = build_compute(ds, catalog, pipeline)
+        # if pipeline_generate is None:
+        #     pipeline_generate = Pipeline([])
+        # if pipeline_changelist is None:
+        #     pipeline_changelist = Pipeline([])
+        # self.steps_generate = [
+        #     step for step in build_compute(ds, catalog, pipeline_generate)
+        #     if isinstance(step, BatchGenerateStep)
+        # ]
+        # self.steps_changelist = build_compute(ds, catalog, pipeline_changelist)
 
         self.add_middleware(
             CORSMiddleware,
