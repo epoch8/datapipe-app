@@ -1,3 +1,7 @@
+# 0.1.7
+
+* Relax FastAPI requirements for compatibility with Fiftyone
+
 # 0.1.6
 
 * Fix [#13](https://github.com/epoch8/datapipe-app/issues/13) - boolean values
