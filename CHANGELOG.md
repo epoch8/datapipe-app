@@ -1,4 +1,4 @@
-# 0.1.7
+# 0.1.7, 0.1.8
 
 * Relax FastAPI requirements for compatibility with Fiftyone
 
