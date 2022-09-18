@@ -1,13 +1,10 @@
-from hashlib import md5
-from typing import List, Dict, Optional
-
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from typing import Dict, List, Optional
 
 import pandas as pd
-
+from datapipe.compute import run_steps, run_steps_changelist
 from datapipe.types import ChangeList
-from datapipe.compute import run_steps, run_steps_changelist, build_compute
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 
 class PipelineStepResponse(BaseModel):
@@ -49,7 +46,7 @@ def DatpipeAPIv1(ds, catalog, pipeline, steps) -> FastAPI:
             return TableResponse(
                 name=tbl.name,
                 indexes=tbl.primary_keys,
-                size=len(tbl.get_metadata()),  ### FIXME add get_size method
+                size=tbl.get_size(),
                 store_class=tbl.table_store.__class__.__name__,
             )
 
