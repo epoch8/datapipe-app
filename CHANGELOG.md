@@ -1,3 +1,8 @@
+# 0.1.9
+
+* Use `DataTable.get_size()`, fixes
+  [#14](https://github.com/epoch8/datapipe-app/issues/14)
+
 # 0.1.7, 0.1.8
 
 * Relax FastAPI requirements for compatibility with Fiftyone
