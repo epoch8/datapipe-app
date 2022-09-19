@@ -12,7 +12,7 @@ ENV PYTHONUNBUFFERED 1
 RUN mkdir /app
 WORKDIR /app
 
-RUN pip install poetry==1.1.13
+RUN pip install poetry==1.2.1
 
 COPY . /app
 COPY --from=frontend-build /srv/build /app/datapipe_app/frontend
