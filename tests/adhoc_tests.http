@@ -1,0 +1,14 @@
+GET http://127.0.0.1:8000/api/v1alpha1/graph
+
+###
+POST http://127.0.0.1:8000/api/v1alpha1/get-data
+Content-Type: application/json
+
+{
+    "table": "events",
+    "page": 0,
+    "page_size": 2,
+    "filters": {
+        "user_id": "1"
+    }
+}
