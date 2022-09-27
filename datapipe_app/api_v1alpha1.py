@@ -7,6 +7,7 @@ from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+from sqlalchemy.sql.functions import count
 from sqlalchemy.sql.expression import select
 
 
@@ -152,13 +153,17 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
         sql_schema = dt.table_store.data_sql_schema
         sql_table = dt.table_store.data_table
 
-        sql = select(*sql_schema)
+        sql = select(*sql_schema).select_from(sql_table)
         # Data table has no delete_ts
         # sql = sql.where(sql_table.c.delete_ts.is_(None))
         sql = sql.offset(req.page * req.page_size).limit(req.page_size)
 
         for col, val in req.filters.items():
             sql = sql.where(sql_table.c[col] == val)
+
+        sql_count = select(count()).select_from(sql_table)
+        for col, val in req.filters.items():
+            sql_count = sql_count.where(sql_table.c[col] == val)
 
         meta_df = pd.read_sql_query(
             sql,
@@ -173,7 +178,7 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
         return GetDataResponse(
             page=req.page,
             page_size=req.page_size,
-            total=len(meta_df),
+            total=dt.table_store.dbconn.con.execute(sql_count).fetchone()[0],
             data=data_df.to_dict(orient="records"),
         )
 
