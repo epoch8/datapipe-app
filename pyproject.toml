@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datapipe-app"
-version = "0.1.9"
+version = "0.1.10"
 description = ""
 authors = ["Andrey Tatarinov <a@tatarinov.co>"]
 
@@ -30,6 +30,7 @@ datapipe = 'datapipe_app.cli:cli'
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.961"
+sqlalchemy = {extras = ["mypy"], version = "*"}
 alembic = "^1.8.1"
 black = "^22.6.0"
 

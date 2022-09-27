@@ -1,10 +1,13 @@
-from typing import Dict, List, Optional
+from select import select
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from datapipe.compute import run_steps, run_steps_changelist
+from datapipe.compute import (Catalog, ComputeStep, DataStore, Pipeline,
+                              run_steps, run_steps_changelist)
 from datapipe.types import ChangeList
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+from sqlalchemy.sql.expression import select
 
 
 class PipelineStepResponse(BaseModel):
@@ -35,7 +38,7 @@ class UpdateDataRequest(BaseModel):
     # delete: List[Dict] = None
 
 
-def DatpipeAPIv1(ds, catalog, pipeline, steps) -> FastAPI:
+def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]) -> FastAPI:
     app = FastAPI()
 
     @app.get("/graph", response_model=GraphResponse)
@@ -95,6 +98,12 @@ def DatpipeAPIv1(ds, catalog, pipeline, steps) -> FastAPI:
 
         return {"result": "ok"}
 
+    class GetDataRequest(BaseModel):
+        table: str
+        filters: Dict[str, Any] = {}
+        page: int = 0
+        page_size: int = 20
+
     class GetDataResponse(BaseModel):
         page: int
         page_size: int
@@ -103,18 +112,72 @@ def DatpipeAPIv1(ds, catalog, pipeline, steps) -> FastAPI:
 
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
     @app.get("/get-data", response_model=GetDataResponse)
-    def get_data(table: str, page: int = 0, page_size: int = 20):
+    def get_data_get(
+        table: str,
+        page: int = 0,
+        page_size: int = 20
+    ) -> GetDataResponse:
         dt = catalog.get_datatable(ds, table)
 
-        meta_df = dt.get_metadata()
+        meta_schema = dt.meta_table.sql_schema
+        meta_tbl = dt.meta_table.sql_table
+
+        sql = select(*meta_schema).\
+            where(meta_tbl.c.delete_ts.is_(None)).\
+            offset(page * page_size).\
+            limit(page_size)
+
+        meta_df = pd.read_sql_query(
+            sql,
+            con=ds.meta_dbconn.con,
+        )
+
+        if not meta_df.empty:
+            data_df = dt.get_data(meta_df)
+        else:
+            data_df = pd.DataFrame()
 
         return GetDataResponse(
             page=page,
             page_size=page_size,
             total=len(meta_df),
-            data=dt.get_data(
-                meta_df.iloc[page * page_size : (page + 1) * page_size]
-            ).to_dict(orient="records"),
+            data=data_df.to_dict(orient="records"),
+        )
+
+    @app.post("/get-data", response_model=GetDataResponse)
+    def get_data_post(req: GetDataRequest) -> GetDataResponse:
+        dt = catalog.get_datatable(ds, req.table)
+
+        meta_schema = dt.meta_table.sql_schema
+        meta_tbl = dt.meta_table.sql_table
+
+        sql = select(*meta_schema).\
+            where(meta_tbl.c.delete_ts.is_(None)).\
+            offset(req.page * req.page_size).\
+            limit(req.page_size)
+
+        for col, val in req.filters.items():
+            sql = sql.where(meta_tbl.c[col] == val)
+
+        print(sql.compile(compile_kwargs={"literal_binds": True}))
+
+        meta_df = pd.read_sql_query(
+            sql,
+            con=ds.meta_dbconn.con,
+        )
+
+        print(meta_df)
+
+        if not meta_df.empty:
+            data_df = dt.get_data(meta_df)
+        else:
+            data_df = pd.DataFrame()
+
+        return GetDataResponse(
+            page=req.page,
+            page_size=req.page_size,
+            total=len(meta_df),
+            data=data_df.to_dict(orient="records"),
         )
 
     class FocusFilter(BaseModel):

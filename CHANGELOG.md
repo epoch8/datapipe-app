@@ -1,3 +1,7 @@
+# 0.1.10
+
+* Add `POST /api/v1alpha1/get-data` with support for filtering
+
 # 0.1.9
 
 * Use `DataTable.get_size()`, fixes
