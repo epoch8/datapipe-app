@@ -1,9 +1,9 @@
-from select import select
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from datapipe.compute import (Catalog, ComputeStep, DataStore, Pipeline,
                               run_steps, run_steps_changelist)
+from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -122,10 +122,9 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
         meta_schema = dt.meta_table.sql_schema
         meta_tbl = dt.meta_table.sql_table
 
-        sql = select(*meta_schema).\
-            where(meta_tbl.c.delete_ts.is_(None)).\
-            offset(page * page_size).\
-            limit(page_size)
+        sql = select(*meta_schema)
+        sql = sql.where(meta_tbl.c.delete_ts.is_(None))
+        sql = sql.offset(page * page_size).limit(page_size)
 
         meta_df = pd.read_sql_query(
             sql,
@@ -148,25 +147,23 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
     def get_data_post(req: GetDataRequest) -> GetDataResponse:
         dt = catalog.get_datatable(ds, req.table)
 
-        meta_schema = dt.meta_table.sql_schema
-        meta_tbl = dt.meta_table.sql_table
+        assert(isinstance(dt.table_store, TableStoreDB))
 
-        sql = select(*meta_schema).\
-            where(meta_tbl.c.delete_ts.is_(None)).\
-            offset(req.page * req.page_size).\
-            limit(req.page_size)
+        sql_schema = dt.table_store.data_sql_schema
+        sql_table = dt.table_store.data_table
+
+        sql = select(*sql_schema)
+        # Data table has no delete_ts
+        # sql = sql.where(sql_table.c.delete_ts.is_(None))
+        sql = sql.offset(req.page * req.page_size).limit(req.page_size)
 
         for col, val in req.filters.items():
-            sql = sql.where(meta_tbl.c[col] == val)
-
-        print(sql.compile(compile_kwargs={"literal_binds": True}))
+            sql = sql.where(sql_table.c[col] == val)
 
         meta_df = pd.read_sql_query(
             sql,
             con=ds.meta_dbconn.con,
         )
-
-        print(meta_df)
 
         if not meta_df.empty:
             data_df = dt.get_data(meta_df)
