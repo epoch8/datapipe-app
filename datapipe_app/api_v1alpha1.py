@@ -5,10 +5,10 @@ from datapipe.compute import (Catalog, ComputeStep, DataStore, Pipeline,
                               run_steps, run_steps_changelist)
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.functions import count
 from sqlalchemy.sql.expression import select
+from sqlalchemy.sql.functions import count
 
 
 class PipelineStepResponse(BaseModel):
@@ -236,5 +236,15 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
     @app.post("/run")
     def run():
         run_steps(ds=ds, steps=steps)
+
+    @app.get("/get-file")
+    def get_file(filepath: str):
+        import mimetypes
+
+        import fsspec
+
+        with fsspec.open(filepath) as f:
+            mime = mimetypes.guess_type(filepath)
+            return Response(content=f.read(), media_type=mime[0])
 
     return app

@@ -1,3 +1,7 @@
+# 0.1.11
+
+* Add `GET /api/v1alpha1/get-file` to get `gs://` or `s3://` files from frontend
+
 # 0.1.10
 
 * Add `POST /api/v1alpha1/get-data` with support for filtering
