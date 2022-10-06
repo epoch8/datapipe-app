@@ -173,6 +173,8 @@ function Cy() {
         stylesheet={stylesheet}
         cy={setCy}
         autoungrabify
+        maxZoom={4}
+        minZoom={0.2}
         elements={graphData}
         className="cy-container"/>
     </>

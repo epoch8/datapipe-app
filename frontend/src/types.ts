@@ -30,5 +30,16 @@ interface MetaNode extends BaseNode {
   graph: GraphData;
 }
 
+interface GetDataReq {
+  table: string
+  page: number
+  page_size: number
+  focus?: {
+    table_name: string,
+    items_idx: Record<string, string | number>[]
+  }
+  filters?: Record<string, string | number>
+}
+
 type Node = MetaNode | TransformNode
-export type { TransformNode, MetaNode, PipeTable, GraphData }
+export type { TransformNode, MetaNode, PipeTable, GraphData, GetDataReq }
