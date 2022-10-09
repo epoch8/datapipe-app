@@ -1,17 +1,11 @@
-import sys
 import os.path
-import click
+import sys
 
+import click
 from opentelemetry import trace  # type: ignore
 from opentelemetry.sdk.trace import TracerProvider  # type: ignore
-from opentelemetry.sdk.trace.export import (  # type: ignore
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-)
-
-from datapipe.datatable import DataStore
-from datapipe.compute import Catalog, Pipeline
-from datapipe.run_config import RunConfig
+from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter  # type: ignore
 
 from datapipe_app import DatapipeApp
 
@@ -75,8 +69,10 @@ def cli(
         trace.set_tracer_provider(provider)
 
     if trace_jaeger:
-        from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore
-        from opentelemetry.sdk.resources import SERVICE_NAME, Resource  # type: ignore
+        from opentelemetry.exporter.jaeger.thrift import \
+            JaegerExporter  # type: ignore
+        from opentelemetry.sdk.resources import SERVICE_NAME  # type: ignore
+        from opentelemetry.sdk.resources import Resource  # type: ignore
 
         trace.set_tracer_provider(
             TracerProvider(resource=Resource.create({SERVICE_NAME: "datapipe"}))
@@ -136,3 +132,16 @@ def run(pipeline: str) -> None:
     app = load_pipeline(pipeline)
 
     run_steps(app.ds, app.steps)
+
+
+@cli.group()
+def db():
+    pass
+
+
+@db.command()
+@click.option("--pipeline", type=click.STRING, default="app")
+def create_all(pipeline: str) -> None:
+    app = load_pipeline(pipeline)
+
+    app.ds.meta_dbconn.sqla_metadata.create_all(app.ds.meta_dbconn.con)

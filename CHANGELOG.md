@@ -1,3 +1,8 @@
+# 0.1.12
+
+* UI for table filters
+* New command `db create-all` to initialize all the tables in database
+
 # 0.1.11
 
 * Add `GET /api/v1alpha1/get-file` to get `gs://` or `s3://` files from frontend
