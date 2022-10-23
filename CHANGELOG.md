@@ -2,6 +2,7 @@
 
 * UI for table filters
 * New command `db create-all` to initialize all the tables in database
+* New commands `step list` and `step run STEP_NAME`
 
 # 0.1.11
 

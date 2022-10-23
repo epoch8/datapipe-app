@@ -145,3 +145,32 @@ def create_all(pipeline: str) -> None:
     app = load_pipeline(pipeline)
 
     app.ds.meta_dbconn.sqla_metadata.create_all(app.ds.meta_dbconn.con)
+
+
+@cli.group()
+def step():
+    pass
+
+
+@step.command()  # type: ignore
+@click.option("--pipeline", type=click.STRING, default="app")
+def list(pipeline: str) -> None:
+    app = load_pipeline(pipeline)
+
+    for step in app.steps:
+        print(step.name)
+
+
+@step.command()  # type:ignore
+@click.option("--pipeline", type=click.STRING, default="app")
+@click.argument('step')
+def run(pipeline: str, step: str) -> None:
+    app = load_pipeline(pipeline)
+
+    steps_to_run = [i for i in app.steps if i.name.startswith(step)]
+
+    if len(steps_to_run) > 0:
+        for step_obj in steps_to_run:
+            step_obj.run_full(app.ds)
+    else:
+        print(f"There's no step with name '{step}'")
