@@ -1,3 +1,8 @@
+# ...
+
+* Fix display on None values
+* Try to fix debug logging
+
 # 0.1.12
 
 * UI for table filters

@@ -55,7 +55,15 @@ def cli(
     import logging
 
     if debug:
+        datapipe_logger = logging.getLogger('datapipe')
+        datapipe_logger.setLevel(logging.DEBUG)
+
+        datapipe_core_steps_logger = logging.getLogger('datapipe.core_steps')
+        datapipe_core_steps_logger.setLevel(logging.DEBUG)
+        
         logging.basicConfig(level=logging.DEBUG)
+
+        datapipe_core_steps_logger.debug("Test debug")
     else:
         logging.basicConfig(level=logging.INFO)
 
