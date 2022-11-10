@@ -5,7 +5,7 @@ from datapipe.compute import (Catalog, ComputeStep, DataStore, Pipeline,
                               run_steps, run_steps_changelist)
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import select
 from sqlalchemy.sql.functions import count
@@ -236,6 +236,20 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
     @app.post("/run")
     def run():
         run_steps(ds=ds, steps=steps)
+ 
+    @app.post("/labelstudio_webhook")
+    def labelstudio_webhook(request: Dict, table_name: Optional[str] = Header(default=None)) -> None:
+        if not table_name:
+            raise HTTPException(status_code=400, detail={"error": "No table_name Header Param"})
+
+        update_data(req=UpdateDataRequest(
+            table_name=table_name,
+            upsert=[{
+                **{k: v for k, v in request["task"]["data"].items()},
+                "annotations": request["annotation"],
+                "predictions": request["annotation"]["prediction"]}
+            ])
+        )
 
     @app.get("/get-file")
     def get_file(filepath: str):
