@@ -246,10 +246,11 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
             table_name=table_name,
             upsert=[{
                 **{k: v for k, v in request["task"]["data"].items()},
-                "annotations": request["annotation"],
-                "predictions": request["annotation"]["prediction"]}
-            ])
-        )
+                "task_id": request["task"]["id"],
+                "annotations": [request["annotation"]],
+                "predictions": [request["annotation"]["prediction"]]
+            }]
+        ))
 
     @app.get("/get-file")
     def get_file(filepath: str):
