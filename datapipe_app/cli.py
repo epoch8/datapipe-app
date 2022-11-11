@@ -6,6 +6,7 @@ from opentelemetry import trace  # type: ignore
 from opentelemetry.sdk.trace import TracerProvider  # type: ignore
 from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter  # type: ignore
+from termcolor import colored
 
 from datapipe_app import DatapipeApp
 
@@ -55,12 +56,12 @@ def cli(
     import logging
 
     if debug:
-        datapipe_logger = logging.getLogger('datapipe')
+        datapipe_logger = logging.getLogger("datapipe")
         datapipe_logger.setLevel(logging.DEBUG)
 
-        datapipe_core_steps_logger = logging.getLogger('datapipe.core_steps')
+        datapipe_core_steps_logger = logging.getLogger("datapipe.core_steps")
         datapipe_core_steps_logger.setLevel(logging.DEBUG)
-        
+
         logging.basicConfig(level=logging.DEBUG)
 
         datapipe_core_steps_logger.debug("Test debug")
@@ -77,8 +78,7 @@ def cli(
         trace.set_tracer_provider(provider)
 
     if trace_jaeger:
-        from opentelemetry.exporter.jaeger.thrift import \
-            JaegerExporter  # type: ignore
+        from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore
         from opentelemetry.sdk.resources import SERVICE_NAME  # type: ignore
         from opentelemetry.sdk.resources import Resource  # type: ignore
 
@@ -155,6 +155,44 @@ def create_all(pipeline: str) -> None:
     app.ds.meta_dbconn.sqla_metadata.create_all(app.ds.meta_dbconn.con)
 
 
+@cli.command()
+@click.option("--pipeline", type=click.STRING, default="app")
+def lint(pipeline: str) -> None:
+    app = load_pipeline(pipeline)
+
+    print(f"Pipeline '{pipeline}' contains {len(app.catalog.catalog)} tables")
+
+    from . import lints
+
+    checks = [lints.LintDeleteTSIsNewerThanUpdateOrProcess()]
+
+    for table_name in app.catalog.catalog.keys():
+        print(f"Checking '{table_name}': ", end="")
+
+        dt = app.catalog.get_datatable(app.ds, table_name)
+
+        errors = []
+
+        for check in checks:
+            (status, msg) = check.check(dt)
+
+            if status == lints.LintStatus.OK:
+                print(".", end="")
+            elif status == lints.LintStatus.SKIP:
+                print(colored("s", "grey"), end="")
+            elif status == lints.LintStatus.FAIL:
+                print(colored("F", "red"), end="")
+                errors.append((check.desc, msg))
+
+        if len(errors) == 0:
+            print(colored(" ok", "green"))
+        else:
+            print(colored(" FAIL", "red"))
+            for check_name, msg in errors:
+                print(f" * {check_name}: {msg}")
+            print()
+
+
 @cli.group()
 def step():
     pass
@@ -171,7 +209,7 @@ def list(pipeline: str) -> None:
 
 @step.command()  # type:ignore
 @click.option("--pipeline", type=click.STRING, default="app")
-@click.argument('step')
+@click.argument("step")
 def run(pipeline: str, step: str) -> None:
     app = load_pipeline(pipeline)
 

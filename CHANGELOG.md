@@ -2,6 +2,8 @@
 
 * Fix display on None values
 * Try to fix debug logging
+* Add `lint` command
+  * Add `"delete_ts is newer than update_ts or process_ts"` check
 
 # 0.1.12
 

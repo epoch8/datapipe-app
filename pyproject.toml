@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datapipe-app"
-version = "0.1.12-alpha.3"
+version = "0.1.12-alpha.4"
 description = ""
 authors = ["Andrey Tatarinov <a@tatarinov.co>"]
 
@@ -21,6 +21,7 @@ python = "^3.8"
 fastapi = ">=0.69.0"
 uvicorn = {extras = ["standard"], version = ">= 0.17.0"}
 click = ">=7.1.2"
+termcolor = "^2.1.0"
 
 datapipe-core = ">=0.11.3-post.1, <0.12"
 # datapipe-core = {path="../datapipe"}
