@@ -157,16 +157,24 @@ def create_all(pipeline: str) -> None:
 
 @cli.command()
 @click.option("--pipeline", type=click.STRING, default="app")
-def lint(pipeline: str) -> None:
+@click.option("--tables", type=click.STRING, default="*")
+@click.option("--fix", is_flag=True, type=click.BOOL, default=False)
+def lint(pipeline: str, tables: str, fix: bool) -> None:
     app = load_pipeline(pipeline)
-
-    print(f"Pipeline '{pipeline}' contains {len(app.catalog.catalog)} tables")
 
     from . import lints
 
     checks = [lints.LintDeleteTSIsNewerThanUpdateOrProcess()]
 
-    for table_name in app.catalog.catalog.keys():
+    tables_from_catalog = app.catalog.catalog.keys()
+    print(f"Pipeline '{pipeline}' contains {len(tables_from_catalog)} tables")
+
+    if tables == "*":
+        tables_to_process = tables_from_catalog
+    else:
+        tables_to_process = tables.split(",")
+
+    for table_name in sorted(tables_to_process):
         print(f"Checking '{table_name}': ", end="")
 
         dt = app.catalog.get_datatable(app.ds, table_name)
@@ -179,17 +187,26 @@ def lint(pipeline: str) -> None:
             if status == lints.LintStatus.OK:
                 print(".", end="")
             elif status == lints.LintStatus.SKIP:
-                print(colored("s", "grey"), end="")
+                print("S", end="")
             elif status == lints.LintStatus.FAIL:
                 print(colored("F", "red"), end="")
-                errors.append((check.desc, msg))
+                errors.append((check, msg))
 
         if len(errors) == 0:
             print(colored(" ok", "green"))
         else:
             print(colored(" FAIL", "red"))
-            for check_name, msg in errors:
-                print(f" * {check_name}: {msg}")
+            for check, msg in errors:
+                print(f" * {check.desc}: {msg}", end="")
+
+                if fix:
+                    try:
+                        check.fix(dt)
+                        print("... " + colored("FIXED", "green"), end="")
+                    except:
+                        print("... " + colored("FAILED TO FIX", "red"), end="")
+                
+                print()
             print()
 
 

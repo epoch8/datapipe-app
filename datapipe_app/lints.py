@@ -1,9 +1,9 @@
-from typing import Tuple, Optional
 from enum import Enum
+from typing import Optional, Tuple
 
 from datapipe.datatable import DataTable
 from datapipe.store.database import TableStoreDB
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from termcolor import colored
 
 
@@ -33,8 +33,8 @@ class Lint:
     def check_query(self, dt: DataTable):
         raise NotImplementedError
 
-    def fix(self) -> None:
-        pass
+    def fix(self, dt: DataTable) -> None:
+        raise NotImplementedError
 
 
 class LintDeleteTSIsNewerThanUpdateOrProcess(Lint):
@@ -47,14 +47,39 @@ class LintDeleteTSIsNewerThanUpdateOrProcess(Lint):
             select(func.count())
             .select_from(meta_tbl)
             .where(
-                or_(
-                    meta_tbl.c.update_ts < meta_tbl.c.delete_ts,
-                    meta_tbl.c.process_ts < meta_tbl.c.delete_ts,
+                and_(
+                    or_(
+                        meta_tbl.c.update_ts < meta_tbl.c.delete_ts,
+                        meta_tbl.c.process_ts < meta_tbl.c.delete_ts,
+                    ),
+                    meta_tbl.c.delete_ts != None,
                 )
             )
         )
 
         return sql
+    
+    def fix(self, dt: DataTable):
+        meta_tbl = dt.meta_table.sql_table
+
+        sql = (
+            update(meta_tbl)
+            .where(
+                and_(
+                    or_(
+                        meta_tbl.c.update_ts < meta_tbl.c.delete_ts,
+                        meta_tbl.c.process_ts < meta_tbl.c.delete_ts,
+                    ),
+                    meta_tbl.c.delete_ts != None,
+                )
+            )
+            .values(
+                update_ts = meta_tbl.c.delete_ts,
+                process_ts = meta_tbl.c.delete_ts,
+            )
+        )
+
+        dt.meta_table.dbconn.con.execute(sql)
 
 
 # class LintDataWOMeta(Lint):
