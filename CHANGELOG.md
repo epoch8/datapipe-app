@@ -1,15 +1,14 @@
-# ...
-
-* Fix display on None values
-* Try to fix debug logging
-* Add `lint` command
-  * Add `"delete_ts is newer than update_ts or process_ts"` check
-
-# 0.1.12
+# 0.2.0
 
 * UI for table filters
 * New command `db create-all` to initialize all the tables in database
 * New commands `step list` and `step run STEP_NAME`
+* Fix display on `None` values
+* Try to fix debug logging
+* Add `lint` command
+  * Add `DTP001: "delete_ts is newer than update_ts or process_ts"` check
+  * Add `--tables` filter for `lint`
+  * Add `--fix` flag and fix functionality for `DTP001`
 
 # 0.1.11
 
