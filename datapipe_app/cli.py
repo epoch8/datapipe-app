@@ -2,13 +2,18 @@ import os.path
 import sys
 
 import click
-from opentelemetry import trace  # type: ignore
-from opentelemetry.sdk.trace import TracerProvider  # type: ignore
-from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter  # type: ignore
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME
+from opentelemetry.sdk.resources import Resource
 from termcolor import colored
 
 from datapipe_app import DatapipeApp
+
+
+tracer = trace.get_tracer("datapipe_app")
 
 
 def load_pipeline(pipeline_name: str) -> DatapipeApp:
@@ -45,13 +50,17 @@ def load_pipeline(pipeline_name: str) -> DatapipeApp:
     "--trace-jaeger-host", type=click.STRING, default="localhost", help="Jaeger host"
 )
 @click.option("--trace-jaeger-port", type=click.INT, default=14268, help="Jaeger port")
+@click.option("--trace-gcp", is_flag=True, help="Enable tracing to Google Cloud Trace")
 def cli(
     debug: bool,
     debug_sql: bool,
     trace_stdout: bool,
+
     trace_jaeger: bool,
     trace_jaeger_host: str,
     trace_jaeger_port: int,
+    
+    trace_gcp: bool,
 ) -> None:
     import logging
 
@@ -71,20 +80,16 @@ def cli(
     if debug_sql:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
+    trace.set_tracer_provider(
+        TracerProvider(resource=Resource.create({SERVICE_NAME: "datapipe"}))
+    )
+
     if trace_stdout:
-        provider = TracerProvider()
         processor = BatchSpanProcessor(ConsoleSpanExporter())
-        provider.add_span_processor(processor)
-        trace.set_tracer_provider(provider)
+        trace.get_tracer_provider().add_span_processor(processor)
 
     if trace_jaeger:
         from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore
-        from opentelemetry.sdk.resources import SERVICE_NAME  # type: ignore
-        from opentelemetry.sdk.resources import Resource  # type: ignore
-
-        trace.set_tracer_provider(
-            TracerProvider(resource=Resource.create({SERVICE_NAME: "datapipe"}))
-        )
 
         # create a JaegerExporter
         jaeger_exporter = JaegerExporter(
@@ -103,6 +108,14 @@ def cli(
 
         # add to the tracer
         trace.get_tracer_provider().add_span_processor(span_processor)  # type: ignore
+
+    if trace_gcp:
+        from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+
+        cloud_trace_exporter = CloudTraceSpanExporter(
+            resource_regex=r".*",
+        )
+        trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(cloud_trace_exporter))
 
 
 @cli.group()
@@ -135,11 +148,13 @@ def reset_metadata(pipeline: str, table: str) -> None:
 @cli.command()
 @click.option("--pipeline", type=click.STRING, default="app")
 def run(pipeline: str) -> None:
-    from datapipe.compute import run_steps
+    with tracer.start_as_current_span("run"):
+        with tracer.start_as_current_span("init"):
+            from datapipe.compute import run_steps
 
-    app = load_pipeline(pipeline)
+            app = load_pipeline(pipeline)
 
-    run_steps(app.ds, app.steps)
+        run_steps(app.ds, app.steps)
 
 
 @cli.group()
