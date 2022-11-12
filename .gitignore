@@ -7,7 +7,6 @@ venv
 .idea
 node_modules
 
-datapipe_app/frontend/
 build/
 dist/
 *.egg-info/

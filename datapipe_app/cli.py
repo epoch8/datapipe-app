@@ -6,6 +6,7 @@ from opentelemetry import trace  # type: ignore
 from opentelemetry.sdk.trace import TracerProvider  # type: ignore
 from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter  # type: ignore
+from termcolor import colored
 
 from datapipe_app import DatapipeApp
 
@@ -55,7 +56,15 @@ def cli(
     import logging
 
     if debug:
+        datapipe_logger = logging.getLogger("datapipe")
+        datapipe_logger.setLevel(logging.DEBUG)
+
+        datapipe_core_steps_logger = logging.getLogger("datapipe.core_steps")
+        datapipe_core_steps_logger.setLevel(logging.DEBUG)
+
         logging.basicConfig(level=logging.DEBUG)
+
+        datapipe_core_steps_logger.debug("Test debug")
     else:
         logging.basicConfig(level=logging.INFO)
 
@@ -69,8 +78,7 @@ def cli(
         trace.set_tracer_provider(provider)
 
     if trace_jaeger:
-        from opentelemetry.exporter.jaeger.thrift import \
-            JaegerExporter  # type: ignore
+        from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore
         from opentelemetry.sdk.resources import SERVICE_NAME  # type: ignore
         from opentelemetry.sdk.resources import Resource  # type: ignore
 
@@ -147,6 +155,61 @@ def create_all(pipeline: str) -> None:
     app.ds.meta_dbconn.sqla_metadata.create_all(app.ds.meta_dbconn.con)
 
 
+@cli.command()
+@click.option("--pipeline", type=click.STRING, default="app")
+@click.option("--tables", type=click.STRING, default="*")
+@click.option("--fix", is_flag=True, type=click.BOOL, default=False)
+def lint(pipeline: str, tables: str, fix: bool) -> None:
+    app = load_pipeline(pipeline)
+
+    from . import lints
+
+    checks = [lints.LintDeleteTSIsNewerThanUpdateOrProcess()]
+
+    tables_from_catalog = app.catalog.catalog.keys()
+    print(f"Pipeline '{pipeline}' contains {len(tables_from_catalog)} tables")
+
+    if tables == "*":
+        tables_to_process = tables_from_catalog
+    else:
+        tables_to_process = tables.split(",")
+
+    for table_name in sorted(tables_to_process):
+        print(f"Checking '{table_name}': ", end="")
+
+        dt = app.catalog.get_datatable(app.ds, table_name)
+
+        errors = []
+
+        for check in checks:
+            (status, msg) = check.check(dt)
+
+            if status == lints.LintStatus.OK:
+                print(".", end="")
+            elif status == lints.LintStatus.SKIP:
+                print("S", end="")
+            elif status == lints.LintStatus.FAIL:
+                print(colored("F", "red"), end="")
+                errors.append((check, msg))
+
+        if len(errors) == 0:
+            print(colored(" ok", "green"))
+        else:
+            print(colored(" FAIL", "red"))
+            for check, msg in errors:
+                print(f" * {check.desc}: {msg}", end="")
+
+                if fix:
+                    try:
+                        check.fix(dt)
+                        print("... " + colored("FIXED", "green"), end="")
+                    except:
+                        print("... " + colored("FAILED TO FIX", "red"), end="")
+                
+                print()
+            print()
+
+
 @cli.group()
 def step():
     pass
@@ -163,7 +226,7 @@ def list(pipeline: str) -> None:
 
 @step.command()  # type:ignore
 @click.option("--pipeline", type=click.STRING, default="app")
-@click.argument('step')
+@click.argument("step")
 def run(pipeline: str, step: str) -> None:
     app = load_pipeline(pipeline)
 
