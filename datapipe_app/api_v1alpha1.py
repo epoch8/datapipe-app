@@ -141,7 +141,9 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
             page=page,
             page_size=page_size,
             total=len(meta_df),
-            data=data_df.to_dict(orient="records"),
+            data=data_df.
+                fillna('').
+                to_dict(orient="records"),
         )
 
     @app.post("/get-data", response_model=GetDataResponse)
@@ -179,7 +181,9 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
             page=req.page,
             page_size=req.page_size,
             total=dt.table_store.dbconn.con.execute(sql_count).fetchone()[0],
-            data=data_df.to_dict(orient="records"),
+            data=data_df.
+                fillna('').
+                to_dict(orient="records"),
         )
 
     class FocusFilter(BaseModel):

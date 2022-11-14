@@ -2,12 +2,18 @@ import os.path
 import sys
 
 import click
-from opentelemetry import trace  # type: ignore
-from opentelemetry.sdk.trace import TracerProvider  # type: ignore
-from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter  # type: ignore
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME
+from opentelemetry.sdk.resources import Resource
+from termcolor import colored
 
 from datapipe_app import DatapipeApp
+
+
+tracer = trace.get_tracer("datapipe_app")
 
 
 def load_pipeline(pipeline_name: str) -> DatapipeApp:
@@ -44,39 +50,46 @@ def load_pipeline(pipeline_name: str) -> DatapipeApp:
     "--trace-jaeger-host", type=click.STRING, default="localhost", help="Jaeger host"
 )
 @click.option("--trace-jaeger-port", type=click.INT, default=14268, help="Jaeger port")
+@click.option("--trace-gcp", is_flag=True, help="Enable tracing to Google Cloud Trace")
 def cli(
     debug: bool,
     debug_sql: bool,
     trace_stdout: bool,
+
     trace_jaeger: bool,
     trace_jaeger_host: str,
     trace_jaeger_port: int,
+    
+    trace_gcp: bool,
 ) -> None:
     import logging
 
     if debug:
+        datapipe_logger = logging.getLogger("datapipe")
+        datapipe_logger.setLevel(logging.DEBUG)
+
+        datapipe_core_steps_logger = logging.getLogger("datapipe.core_steps")
+        datapipe_core_steps_logger.setLevel(logging.DEBUG)
+
         logging.basicConfig(level=logging.DEBUG)
+
+        datapipe_core_steps_logger.debug("Test debug")
     else:
         logging.basicConfig(level=logging.INFO)
 
     if debug_sql:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
+    trace.set_tracer_provider(
+        TracerProvider(resource=Resource.create({SERVICE_NAME: "datapipe"}))
+    )
+
     if trace_stdout:
-        provider = TracerProvider()
         processor = BatchSpanProcessor(ConsoleSpanExporter())
-        provider.add_span_processor(processor)
-        trace.set_tracer_provider(provider)
+        trace.get_tracer_provider().add_span_processor(processor)
 
     if trace_jaeger:
-        from opentelemetry.exporter.jaeger.thrift import \
-            JaegerExporter  # type: ignore
-        from opentelemetry.sdk.resources import SERVICE_NAME  # type: ignore
-        from opentelemetry.sdk.resources import Resource  # type: ignore
-
-        trace.set_tracer_provider(
-            TracerProvider(resource=Resource.create({SERVICE_NAME: "datapipe"}))
-        )
+        from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore
 
         # create a JaegerExporter
         jaeger_exporter = JaegerExporter(
@@ -95,6 +108,14 @@ def cli(
 
         # add to the tracer
         trace.get_tracer_provider().add_span_processor(span_processor)  # type: ignore
+
+    if trace_gcp:
+        from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+
+        cloud_trace_exporter = CloudTraceSpanExporter(
+            resource_regex=r".*",
+        )
+        trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(cloud_trace_exporter))
 
 
 @cli.group()
@@ -127,11 +148,13 @@ def reset_metadata(pipeline: str, table: str) -> None:
 @cli.command()
 @click.option("--pipeline", type=click.STRING, default="app")
 def run(pipeline: str) -> None:
-    from datapipe.compute import run_steps
+    with tracer.start_as_current_span("run"):
+        with tracer.start_as_current_span("init"):
+            from datapipe.compute import run_steps
 
-    app = load_pipeline(pipeline)
+            app = load_pipeline(pipeline)
 
-    run_steps(app.ds, app.steps)
+        run_steps(app.ds, app.steps)
 
 
 @cli.group()
@@ -145,6 +168,61 @@ def create_all(pipeline: str) -> None:
     app = load_pipeline(pipeline)
 
     app.ds.meta_dbconn.sqla_metadata.create_all(app.ds.meta_dbconn.con)
+
+
+@cli.command()
+@click.option("--pipeline", type=click.STRING, default="app")
+@click.option("--tables", type=click.STRING, default="*")
+@click.option("--fix", is_flag=True, type=click.BOOL, default=False)
+def lint(pipeline: str, tables: str, fix: bool) -> None:
+    app = load_pipeline(pipeline)
+
+    from . import lints
+
+    checks = [lints.LintDeleteTSIsNewerThanUpdateOrProcess()]
+
+    tables_from_catalog = app.catalog.catalog.keys()
+    print(f"Pipeline '{pipeline}' contains {len(tables_from_catalog)} tables")
+
+    if tables == "*":
+        tables_to_process = tables_from_catalog
+    else:
+        tables_to_process = tables.split(",")
+
+    for table_name in sorted(tables_to_process):
+        print(f"Checking '{table_name}': ", end="")
+
+        dt = app.catalog.get_datatable(app.ds, table_name)
+
+        errors = []
+
+        for check in checks:
+            (status, msg) = check.check(dt)
+
+            if status == lints.LintStatus.OK:
+                print(".", end="")
+            elif status == lints.LintStatus.SKIP:
+                print("S", end="")
+            elif status == lints.LintStatus.FAIL:
+                print(colored("F", "red"), end="")
+                errors.append((check, msg))
+
+        if len(errors) == 0:
+            print(colored(" ok", "green"))
+        else:
+            print(colored(" FAIL", "red"))
+            for check, msg in errors:
+                print(f" * {check.desc}: {msg}", end="")
+
+                if fix:
+                    try:
+                        check.fix(dt)
+                        print("... " + colored("FIXED", "green"), end="")
+                    except:
+                        print("... " + colored("FAILED TO FIX", "red"), end="")
+                
+                print()
+            print()
 
 
 @cli.group()
@@ -163,7 +241,7 @@ def list(pipeline: str) -> None:
 
 @step.command()  # type:ignore
 @click.option("--pipeline", type=click.STRING, default="app")
-@click.argument('step')
+@click.argument("step")
 def run(pipeline: str, step: str) -> None:
     app = load_pipeline(pipeline)
 

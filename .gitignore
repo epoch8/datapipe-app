@@ -8,7 +8,6 @@ venv
 node_modules
 .DS_Store
 
-datapipe_app/frontend/
 build/
 dist/
 *.egg-info/
