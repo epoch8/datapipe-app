@@ -237,7 +237,7 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
     def run():
         run_steps(ds=ds, steps=steps)
  
-    @app.post("/labelstudio_webhook")
+    @app.post("/labelstudio-webhook")
     def labelstudio_webhook(request: Dict, table_name: Optional[str] = Header(default=None)) -> None:
         if not table_name:
             raise HTTPException(status_code=400, detail={"error": "No table_name Header Param"})
