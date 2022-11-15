@@ -252,6 +252,6 @@ def DatpipeAPIv1(
             mime = mimetypes.guess_type(filepath)
             return Response(content=f.read(), media_type=mime[0])
 
-    FastAPIInstrumentor.instrument_app(app)
+    FastAPIInstrumentor.instrument_app(app, excluded_urls="docs")
 
     return app
