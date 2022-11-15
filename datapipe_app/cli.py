@@ -252,3 +252,12 @@ def run(pipeline: str, step: str) -> None:
             step_obj.run_full(app.ds)
     else:
         print(f"There's no step with name '{step}'")
+
+
+@cli.command()
+@click.option("--pipeline", type=click.STRING, default="app")
+def api(pipeline: str) -> None:
+    app = load_pipeline(pipeline)
+
+    import uvicorn
+    uvicorn.run(app)

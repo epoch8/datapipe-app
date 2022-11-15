@@ -1,11 +1,18 @@
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from datapipe.compute import (Catalog, ComputeStep, DataStore, Pipeline,
-                              run_steps, run_steps_changelist)
+from datapipe.compute import (
+    Catalog,
+    ComputeStep,
+    DataStore,
+    Pipeline,
+    run_steps,
+    run_steps_changelist,
+)
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
 from fastapi import FastAPI, Response
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import select
 from sqlalchemy.sql.functions import count
@@ -39,7 +46,9 @@ class UpdateDataRequest(BaseModel):
     # delete: List[Dict] = None
 
 
-def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]) -> FastAPI:
+def DatpipeAPIv1(
+    ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]
+) -> FastAPI:
     app = FastAPI()
 
     @app.get("/graph", response_model=GraphResponse)
@@ -113,11 +122,7 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
 
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
     @app.get("/get-data", response_model=GetDataResponse)
-    def get_data_get(
-        table: str,
-        page: int = 0,
-        page_size: int = 20
-    ) -> GetDataResponse:
+    def get_data_get(table: str, page: int = 0, page_size: int = 20) -> GetDataResponse:
         dt = catalog.get_datatable(ds, table)
 
         meta_schema = dt.meta_table.sql_schema
@@ -141,16 +146,14 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
             page=page,
             page_size=page_size,
             total=len(meta_df),
-            data=data_df.
-                fillna('').
-                to_dict(orient="records"),
+            data=data_df.fillna("").to_dict(orient="records"),
         )
 
     @app.post("/get-data", response_model=GetDataResponse)
     def get_data_post(req: GetDataRequest) -> GetDataResponse:
         dt = catalog.get_datatable(ds, req.table)
 
-        assert(isinstance(dt.table_store, TableStoreDB))
+        assert isinstance(dt.table_store, TableStoreDB)
 
         sql_schema = dt.table_store.data_sql_schema
         sql_table = dt.table_store.data_table
@@ -181,9 +184,7 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
             page=req.page,
             page_size=req.page_size,
             total=dt.table_store.dbconn.con.execute(sql_count).fetchone()[0],
-            data=data_df.
-                fillna('').
-                to_dict(orient="records"),
+            data=data_df.fillna("").to_dict(orient="records"),
         )
 
     class FocusFilter(BaseModel):
@@ -250,5 +251,7 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
         with fsspec.open(filepath) as f:
             mime = mimetypes.guess_type(filepath)
             return Response(content=f.read(), media_type=mime[0])
+
+    FastAPIInstrumentor.instrument_app(app)
 
     return app

@@ -1,3 +1,8 @@
+# 0.2.1
+
+* Add `api` command that runs `uvicorn` with ability to setup tracing etc
+* Add otel instrumentation for API
+
 # 0.2.0
 
 * UI for table filters
