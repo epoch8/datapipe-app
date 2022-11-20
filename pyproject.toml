@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datapipe-app"
-version = "0.2.1"
+version = "0.2.1-post.1"
 description = ""
 authors = ["Andrey Tatarinov <a@tatarinov.co>"]
 
@@ -26,7 +26,7 @@ termcolor = "^2.1.0"
 datapipe-core = ">=0.11.3-post.1, <0.12"
 # datapipe-core = {path="../datapipe"}
 
-opentelemetry-instrumentation-fastapi = "^0.35b0"
+opentelemetry-instrumentation-fastapi = "0.35b0"
 
 opentelemetry-exporter-gcp-trace = {version="^1.3.0", optional=true}
 opentelemetry-exporter-jaeger = {version="^1.8.0", optional=true}
