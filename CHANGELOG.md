@@ -1,3 +1,7 @@
+# 0.3.0
+
+* Add `DatapipeApp.api` subapp to mount extra APIs
+
 # 0.2.1
 
 * Add `api` command that runs `uvicorn` with ability to setup tracing etc
