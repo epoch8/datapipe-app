@@ -241,6 +241,8 @@ def DatpipeAPIv1(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: Lis
     def run():
         run_steps(ds=ds, steps=steps)
  
+    # TODO refactor out to component based extension system
+    # TODO automatic setup of webhook on project creation
     @app.post("/labelstudio-webhook")
     def labelstudio_webhook(request: Dict, table_name: Optional[str] = Header(default=None)) -> None:
         if not table_name:
