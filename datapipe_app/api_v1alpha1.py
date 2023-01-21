@@ -241,23 +241,31 @@ def DatpipeAPIv1(
     @app.post("/run")
     def run():
         run_steps(ds=ds, steps=steps)
- 
+
     # TODO refactor out to component based extension system
     # TODO automatic setup of webhook on project creation
     @app.post("/labelstudio-webhook")
-    def labelstudio_webhook(request: Dict, table_name: Optional[str] = Header(default=None)) -> None:
+    def labelstudio_webhook(
+        request: Dict, table_name: Optional[str] = Header(default=None)
+    ) -> None:
         if not table_name:
-            raise HTTPException(status_code=400, detail={"error": "No table_name Header Param"})
+            raise HTTPException(
+                status_code=400, detail={"error": "No table_name Header Param"}
+            )
 
-        update_data(req=UpdateDataRequest(
-            table_name=table_name,
-            upsert=[{
-                **{k: v for k, v in request["task"]["data"].items()},
-                "task_id": request["task"]["id"],
-                "annotations": [request["annotation"]],
-                "predictions": [request["annotation"]["prediction"]]
-            }]
-        ))
+        update_data(
+            req=UpdateDataRequest(
+                table_name=table_name,
+                upsert=[
+                    {
+                        **{k: v for k, v in request["task"]["data"].items()},
+                        "task_id": request["task"]["id"],
+                        "annotations": [request["annotation"]],
+                        "predictions": [request["annotation"]["prediction"]],
+                    }
+                ],
+            )
+        )
 
     @app.get("/get-file")
     def get_file(filepath: str):
