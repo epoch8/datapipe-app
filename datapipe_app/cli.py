@@ -55,11 +55,9 @@ def cli(
     debug: bool,
     debug_sql: bool,
     trace_stdout: bool,
-
     trace_jaeger: bool,
     trace_jaeger_host: str,
     trace_jaeger_port: int,
-    
     trace_gcp: bool,
 ) -> None:
     import logging
@@ -115,7 +113,9 @@ def cli(
         cloud_trace_exporter = CloudTraceSpanExporter(
             resource_regex=r".*",
         )
-        trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(cloud_trace_exporter))
+        trace.get_tracer_provider().add_span_processor(
+            BatchSpanProcessor(cloud_trace_exporter)
+        )
 
 
 @cli.group()
@@ -220,7 +220,7 @@ def lint(pipeline: str, tables: str, fix: bool) -> None:
                         print("... " + colored("FIXED", "green"), end="")
                     except:
                         print("... " + colored("FAILED TO FIX", "red"), end="")
-                
+
                 print()
             print()
 
@@ -252,3 +252,13 @@ def run(pipeline: str, step: str) -> None:
             step_obj.run_full(app.ds)
     else:
         print(f"There's no step with name '{step}'")
+
+
+@cli.command()
+@click.option("--pipeline", type=click.STRING, default="app")
+def api(pipeline: str) -> None:
+    app = load_pipeline(pipeline)
+
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0")
