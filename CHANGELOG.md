@@ -1,3 +1,11 @@
+# WIP
+
+* Add input/output tables to `datapipe step list` output
+
+# 0.3.0
+
+* Add `/api/v1alpha1/labelstudio-webhook` endpoint for integration with Label Studio
+
 # 0.2.1
 
 * Add `api` command that runs `uvicorn` with ability to setup tracing etc

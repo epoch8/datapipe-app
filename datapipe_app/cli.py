@@ -236,7 +236,9 @@ def list(pipeline: str) -> None:
     app = load_pipeline(pipeline)
 
     for step in app.steps:
-        print(step.name)
+        print(
+            f"{step.name}: \t{tuple(i.name for i in step.get_input_dts())} -> {tuple(i.name for i in step.get_output_dts())}"
+        )
 
 
 @step.command()  # type:ignore
