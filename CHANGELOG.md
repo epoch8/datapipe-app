@@ -1,6 +1,7 @@
 # WIP
 
 * Add input/output tables to `datapipe step list` output
+* Add lint `LintDataWOMeta` to check and fix data without meta
 
 # 0.3.0
 

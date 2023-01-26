@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 
 from datapipe.datatable import DataTable
 from datapipe.store.database import TableStoreDB
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update, literal, not_, insert
 from termcolor import colored
 
 
@@ -20,7 +20,6 @@ class Lint:
         query = self.check_query(dt)
 
         if query is None:
-            print(colored("S", "grey"), end="")
             return (LintStatus.SKIP, None)
 
         (cnt,) = dt.meta_table.dbconn.con.execute(query).fetchone()
@@ -33,7 +32,7 @@ class Lint:
     def check_query(self, dt: DataTable):
         raise NotImplementedError
 
-    def fix(self, dt: DataTable) -> None:
+    def fix(self, dt: DataTable) -> Tuple[LintStatus, Optional[str]]:
         raise NotImplementedError
 
 
@@ -58,7 +57,7 @@ class LintDeleteTSIsNewerThanUpdateOrProcess(Lint):
         )
 
         return sql
-    
+
     def fix(self, dt: DataTable):
         meta_tbl = dt.meta_table.sql_table
 
@@ -74,22 +73,78 @@ class LintDeleteTSIsNewerThanUpdateOrProcess(Lint):
                 )
             )
             .values(
-                update_ts = meta_tbl.c.delete_ts,
-                process_ts = meta_tbl.c.delete_ts,
+                update_ts=meta_tbl.c.delete_ts,
+                process_ts=meta_tbl.c.delete_ts,
             )
         )
 
         dt.meta_table.dbconn.con.execute(sql)
 
+        return (LintStatus.OK, None)
 
-# class LintDataWOMeta(Lint):
-#     desc = "data has rows without meta"
 
-#     def check_query(self, dt: DataTable):
-#         if not isinstance(dt.table_store, TableStoreDB):
-#             return None
+class LintDataWOMeta(Lint):
+    desc = "data has rows without meta"
 
-#         meta_tbl = dt.meta_table.sql_table
-#         data_tbl = dt.table_store.data_table
+    def check_query(self, dt: DataTable):
+        if not isinstance(dt.table_store, TableStoreDB):
+            return None
 
-#         sql = select(func.cou)
+        meta_tbl = dt.meta_table.sql_table
+        data_tbl = dt.table_store.data_table
+
+        exists_sql = (
+            select(literal(1))
+            .select_from(meta_tbl)
+            .where(
+                and_(
+                    meta_tbl.c[col.name] == data_tbl.c[col.name]
+                    for col in meta_tbl.columns
+                    if col.primary_key
+                )
+            )
+        )
+
+        sql = (
+            select(func.count()).select_from(data_tbl).where(not_(exists_sql.exists()))
+        )
+
+        return sql
+
+    def fix(self, dt: DataTable):
+        assert isinstance(dt.table_store, TableStoreDB)
+
+        meta_tbl = dt.meta_table.sql_table
+        data_tbl = dt.table_store.data_table
+
+        exists_sql = (
+            select(literal(1))
+            .select_from(meta_tbl)
+            .where(
+                and_(
+                    meta_tbl.c[col.name] == data_tbl.c[col.name]
+                    for col in meta_tbl.columns
+                    if col.primary_key
+                )
+            )
+        )
+
+        sql = insert(meta_tbl).from_select(
+            [col.name for col in meta_tbl.columns if col.primary_key]
+            + ["hash", "create_ts", "update_ts", "delete_ts"],
+            select(
+                *[data_tbl.c[col.name] for col in meta_tbl.columns if col.primary_key]
+                + [
+                    literal(0).label("hash"),
+                    literal(0).label("create_ts"),
+                    literal(0).label("update_ts"),
+                    literal(None).label("delete_ts"),
+                ]
+            )
+            .select_from(data_tbl)
+            .where(not_(exists_sql.exists())),
+        )
+
+        dt.meta_table.dbconn.con.execute(sql)
+
+        return (LintStatus.OK, None)

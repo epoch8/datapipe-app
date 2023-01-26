@@ -179,7 +179,10 @@ def lint(pipeline: str, tables: str, fix: bool) -> None:
 
     from . import lints
 
-    checks = [lints.LintDeleteTSIsNewerThanUpdateOrProcess()]
+    checks = [
+        lints.LintDeleteTSIsNewerThanUpdateOrProcess(),
+        lints.LintDataWOMeta(),
+    ]
 
     tables_from_catalog = app.catalog.catalog.keys()
     print(f"Pipeline '{pipeline}' contains {len(tables_from_catalog)} tables")
@@ -216,8 +219,16 @@ def lint(pipeline: str, tables: str, fix: bool) -> None:
 
                 if fix:
                     try:
-                        check.fix(dt)
-                        print("... " + colored("FIXED", "green"), end="")
+                        (fix_status, fix_msg) = check.fix(dt)
+                        if fix_status == lints.LintStatus.OK:
+                            print("... " + colored("FIXED", "green"), end="")
+                        elif fix_status == lints.LintStatus.SKIP:
+                            print("... " + colored("SKIPPED", "yellow"), end="")
+                        else:
+                            print("... " + colored("FAILED TO FIX", "red"), end="")
+
+                            if fix_msg:
+                                print(fix_msg, end="")
                     except:
                         print("... " + colored("FAILED TO FIX", "red"), end="")
 
