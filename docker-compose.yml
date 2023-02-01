@@ -1,0 +1,29 @@
+version: "3"
+
+services:
+  api:
+    build:
+      dockerfile: ./Dockerfile
+      context: ./
+    image: api
+    container_name: api
+    ports:
+      - '8000:8000'
+
+  ls:
+    image: heartexlabs/label-studio:1.5.0.post0
+    ports:
+      - 8080:8080
+    environment:
+      DJANGO_DB: default
+      POSTGRE_NAME: postgres
+      POSTGRE_USER: postgres
+      POSTGRE_PASSWORD: postgres
+      POSTGRE_PORT: 5432
+      POSTGRE_HOST: ls-database
+
+  ls-database:
+    image: postgres:12
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres

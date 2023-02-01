@@ -11,7 +11,7 @@ from datapipe.compute import (
 )
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
-from fastapi import FastAPI, Response, Header, HTTPException
+from fastapi import FastAPI, Response, Header, HTTPException, Query, Depends
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import select
@@ -246,7 +246,9 @@ def DatpipeAPIv1(
     # TODO automatic setup of webhook on project creation
     @app.post("/labelstudio-webhook")
     def labelstudio_webhook(
-        request: Dict, table_name: Optional[str] = Header(default=None)
+        request: Dict,
+        data_field: List = Query(None, title="Fields to get from data"),
+        table_name: Optional[str] = Header(default=None),
     ) -> None:
         if not table_name:
             raise HTTPException(
@@ -258,10 +260,11 @@ def DatpipeAPIv1(
                 table_name=table_name,
                 upsert=[
                     {
-                        **{k: v for k, v in request["task"]["data"].items()},
-                        "task_id": request["task"]["id"],
+                        **{
+                            k: v for k, v in request["task"]["data"].items()
+                            if k in data_field
+                        },
                         "annotations": [request["annotation"]],
-                        "predictions": [request["annotation"]["prediction"]],
                     }
                 ],
             )
