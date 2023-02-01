@@ -1,3 +1,7 @@
+# WIP: 0.3.2
+
+* Add `DatapipeApp.api` subapp to mount extra APIs
+
 # 0.3.1
 
 * Add input/output tables to `datapipe step list` output

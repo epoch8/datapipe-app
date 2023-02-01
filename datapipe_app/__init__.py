@@ -30,9 +30,15 @@ class DatapipeApp(FastAPI):
             allow_headers=["*"],
         )
 
-        api_v1_app = api_v1alpha1.DatpipeAPIv1(ds, catalog, pipeline, self.steps)
+        self.api = FastAPI()
 
-        self.mount("/api/v1alpha1", api_v1_app, name="api_v1")
+        self.api.mount(
+            "/v1alpha1",
+            api_v1alpha1.DatpipeAPIv1(ds, catalog, pipeline, self.steps),
+            name="v1alpha1"
+        )
+
+        self.mount("/api", self.api, name="api")
         self.mount(
             "/",
             StaticFiles(
