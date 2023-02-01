@@ -252,6 +252,30 @@ def list(pipeline: str) -> None:
         )
 
 
+@step.command()
+@click.option("--pipeline", type=click.STRING, default="app")
+@click.argument("step")
+def status(pipeline: str, step: str) -> None:
+    app = load_pipeline(pipeline)
+
+    steps = [i for i in app.steps if i.name.startswith(step)]
+
+    if len(steps) > 0:
+        for step in steps:
+            print(
+                f"{step.name}: \t{tuple(i.name for i in step.get_input_dts())} -> {tuple(i.name for i in step.get_output_dts())}"
+            )
+
+            changed_idx_count = app.ds.get_changed_idx_count(
+                inputs=step.get_input_dts(),
+                outputs=step.get_output_dts(),
+            )
+
+            print(f"Idx to process: {changed_idx_count}")
+    else:
+        print(f"There's no step with name '{step}'")
+
+
 @step.command()  # type:ignore
 @click.option("--pipeline", type=click.STRING, default="app")
 @click.argument("step")
