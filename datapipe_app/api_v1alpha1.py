@@ -11,7 +11,7 @@ from datapipe.compute import (
 )
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
-from fastapi import FastAPI, Response, Header, HTTPException, Query, Depends
+from fastapi import FastAPI, Response, Query
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import select
@@ -247,14 +247,9 @@ def DatpipeAPIv1(
     @app.post("/labelstudio-webhook")
     def labelstudio_webhook(
         request: Dict,
-        data_field: List = Query(None, title="Fields to get from data"),
-        table_name: Optional[str] = Header(default=None),
+        table_name: str = Query(..., title="Input table name"),
+        data_field: List = Query(..., title="Fields to get from data"),
     ) -> None:
-        if not table_name:
-            raise HTTPException(
-                status_code=400, detail={"error": "No table_name Header Param"}
-            )
-
         update_data(
             req=UpdateDataRequest(
                 table_name=table_name,
