@@ -140,9 +140,11 @@ def reset_metadata(pipeline: str, table: str) -> None:
 
     dt = app.catalog.get_datatable(app.ds, table)
 
-    app.ds.meta_dbconn.con.execute(
-        dt.meta_table.sql_table.update().values(process_ts=0, update_ts=0)
-    )
+    reset_successful = dt.reset_metadata()
+    if reset_successful:
+        print(f"Reset metadata for {table}")
+    else:
+        print(f"Failed to reset metadata for {table}, probably resetting metadata for this table is not allowed.")
 
 
 @cli.command()
