@@ -1,5 +1,6 @@
 import os.path
 import sys
+from typing import Optional, List
 
 import click
 from opentelemetry import trace
@@ -11,6 +12,7 @@ from opentelemetry.sdk.resources import Resource
 from termcolor import colored
 
 from datapipe_app import DatapipeApp
+from datapipe.compute import ComputeStep
 
 
 tracer = trace.get_tracer("datapipe_app")
@@ -248,10 +250,62 @@ def run(pipeline: str, step: str) -> None:
     steps_to_run = [i for i in app.steps if i.name.startswith(step)]
 
     if len(steps_to_run) > 0:
+        steps_to_run_names = [f"'{i.name}'" for i in steps_to_run]
+        print(f"Running following steps: {', '.join(steps_to_run_names)}")
         for step_obj in steps_to_run:
             step_obj.run_full(app.ds)
     else:
         print(f"There's no step with name '{step}'")
+
+
+def get_steps_range(
+    steps: List[ComputeStep], first_step: Optional[str], last_step: Optional[str]
+) -> List[ComputeStep]:
+    if first_step is None and last_step is None:
+        print("Missing arguments: FIRST_STEP or LAST_STEP, running all graph.")
+        steps_to_run = steps
+    if first_step is not None:
+        first_step_idxs = [idx for idx, i in enumerate(steps) if i.name.startswith(first_step)]
+        if len(first_step_idxs) == 0:
+            print(f"There's no step with name '{first_step}'")
+            return []
+        first_index = first_step_idxs[0]
+    else:
+        first_index = None
+    if last_step is not None:
+        last_step_idxs = [idx for idx, i in enumerate(steps) if i.name.startswith(last_step)]
+        if len(last_step_idxs) == 0:
+            print(f"There's no step with name '{last_step}'")
+            return []
+        last_index = last_step_idxs[-1] + 1
+    else:
+        last_index = None
+
+    if first_index is not None and last_index is not None and first_index > last_index:
+        print(f"Step with name '{last_step}' is located before step with name '{step}'")
+        return []
+
+    steps_to_run = steps[first_index:last_index]
+    return steps_to_run
+
+
+@step.command()  # type:ignore
+@click.option("--first-step", type=click.STRING, default=None, required=False)
+@click.option("--last-step", type=click.STRING, default=None, required=False)
+@click.option("--pipeline", type=click.STRING, default="app")
+def run_in_range(
+    pipeline: str,
+    first_step: List[str] = None,
+    last_step: Optional[str] = None
+) -> None:
+
+    app = load_pipeline(pipeline)
+
+    steps_to_run = get_steps_range(app.steps, first_step, last_step)
+    steps_to_run_names = [f"'{i.name}'" for i in steps_to_run]
+    print(f"Running following steps: {', '.join(steps_to_run_names)}")
+    for step_obj in steps_to_run:
+        step_obj.run_full(app.ds)
 
 
 @cli.command()
