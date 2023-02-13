@@ -34,7 +34,7 @@ gcp = ["opentelemetry-exporter-gcp-trace"]
 jaeger = ["opentelemetry-exporter-jaeger"]
 
 [tool.poetry.scripts]
-datapipe = 'datapipe_app.cli:cli'
+datapipe = 'datapipe_app.cli:main'
 
 [tool.poetry.dev-dependencies]
 mypy = "*"
