@@ -322,8 +322,11 @@ def status(ctx: click.Context) -> None:
 
 @step.command()
 @click.option("--loop", is_flag=True, default=False, help="Run continuosly in a loop")
+@click.option(
+    "--loop-delay", type=click.INT, default=30, help="Delay between loops in seconds"
+)
 @click.pass_context
-def run(ctx: click.Context, loop: bool) -> None:
+def run(ctx: click.Context, loop: bool, loop_delay: int) -> None:
     app: DatapipeApp = ctx.obj["pipeline"]
     steps_to_run: List[ComputeStep] = ctx.obj["steps"]
 
@@ -335,8 +338,8 @@ def run(ctx: click.Context, loop: bool) -> None:
         if not loop:
             break
         else:
-            print(f"Loop ended, sleeping 60s...")
-            time.sleep(60)
+            print(f"Loop ended, sleeping {loop_delay}s...")
+            time.sleep(loop_delay)
             print("\n\n")
 
 
