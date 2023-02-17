@@ -43,6 +43,7 @@ class GraphResponse(BaseModel):
 class UpdateDataRequest(BaseModel):
     table_name: str
     upsert: Optional[List[Dict]] = None
+    run_changelist: bool = True
     # delete: List[Dict] = None
 
 
@@ -103,8 +104,8 @@ def DatpipeAPIv1(
         #     )
 
         #     cl.append(dt.name, idx)
-
-        run_steps_changelist(ds, steps, cl)
+        if req.run_changelist:
+            run_steps_changelist(ds, steps, cl)
 
         return {"result": "ok"}
 
