@@ -251,6 +251,7 @@ def DatpipeAPIv1(
 
         with fsspec.open(filepath) as f:
             mime = mimetypes.guess_type(filepath)
+            assert mime[0] is not None
             return Response(content=f.read(), media_type=mime[0])
 
     FastAPIInstrumentor.instrument_app(app, excluded_urls="docs")
