@@ -11,7 +11,7 @@ from datapipe.compute import (
 )
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Query
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import select
@@ -242,6 +242,29 @@ def DatpipeAPIv1(
     @app.post("/run")
     def run():
         run_steps(ds=ds, steps=steps)
+
+    # TODO refactor out to component based extension system
+    # TODO automatic setup of webhook on project creation
+    @app.post("/labelstudio-webhook")
+    def labelstudio_webhook(
+        request: Dict,
+        table_name: str = Query(..., title="Input table name"),
+        data_field: List = Query(..., title="Fields to get from data"),
+    ) -> None:
+        update_data(
+            req=UpdateDataRequest(
+                table_name=table_name,
+                upsert=[
+                    {
+                        **{
+                            k: v for k, v in request["task"]["data"].items()
+                            if k in data_field
+                        },
+                        "annotations": [request["annotation"]],
+                    }
+                ],
+            )
+        )
 
     @app.get("/get-file")
     def get_file(filepath: str):

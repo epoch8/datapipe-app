@@ -1,6 +1,9 @@
+from typing import Dict, Iterator, List
+from typing import Optional, List
+
 import os.path
 import sys
-from typing import Optional, List
+import time
 
 import click
 from opentelemetry import trace
@@ -11,6 +14,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME
 from opentelemetry.sdk.resources import Resource
 from termcolor import colored
 
+from datapipe.compute import ComputeStep
 from datapipe_app import DatapipeApp
 from datapipe.compute import ComputeStep
 
@@ -43,6 +47,33 @@ def load_pipeline(pipeline_name: str) -> DatapipeApp:
     return app
 
 
+def parse_labels(labels: str) -> Dict[str, str]:
+    if labels == "":
+        return {}
+
+    labels_dict = dict(kv.split("=") for kv in labels.split(","))
+
+    return labels_dict
+
+
+def filter_steps_by_labels_and_name(
+    app: DatapipeApp, labels: Dict[str, str] = {}, name_prefix: str = ""
+) -> List[ComputeStep]:
+    res = []
+
+    for step in app.steps:
+        for k, v in labels.items():
+            if k not in step.labels:
+                break
+            if step.labels[k] != v:
+                break
+        else:
+            if step.name.startswith(name_prefix):
+                res.append(step)
+
+    return res
+
+
 @click.group()
 @click.option("--debug", is_flag=True, help="Log debug output")
 @click.option("--debug-sql", is_flag=True, help="Log SQL queries VERY VERBOSE")
@@ -53,7 +84,10 @@ def load_pipeline(pipeline_name: str) -> DatapipeApp:
 )
 @click.option("--trace-jaeger-port", type=click.INT, default=14268, help="Jaeger port")
 @click.option("--trace-gcp", is_flag=True, help="Enable tracing to Google Cloud Trace")
+@click.option("--pipeline", type=click.STRING, default="app")
+@click.pass_context
 def cli(
+    ctx: click.Context,
     debug: bool,
     debug_sql: bool,
     trace_stdout: bool,
@@ -61,6 +95,7 @@ def cli(
     trace_jaeger_host: str,
     trace_jaeger_port: int,
     trace_gcp: bool,
+    pipeline: str,
 ) -> None:
     import logging
 
@@ -72,8 +107,6 @@ def cli(
         datapipe_core_steps_logger.setLevel(logging.DEBUG)
 
         logging.basicConfig(level=logging.DEBUG)
-
-        datapipe_core_steps_logger.debug("Test debug")
     else:
         logging.basicConfig(level=logging.INFO)
 
@@ -119,6 +152,10 @@ def cli(
             BatchSpanProcessor(cloud_trace_exporter)
         )
 
+    ctx.ensure_object(dict)
+    with tracer.start_as_current_span("init"):
+        ctx.obj["pipeline"] = load_pipeline(pipeline)
+
 
 @cli.group()
 def table():
@@ -126,19 +163,19 @@ def table():
 
 
 @table.command()
-@click.option("--pipeline", type=click.STRING, default="app")
-def list(pipeline: str) -> None:
-    app = load_pipeline(pipeline)
+@click.pass_context
+def list(ctx: click.Context) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
 
     for table in sorted(app.catalog.catalog.keys()):
         print(table)
 
 
 @table.command()
-@click.option("--pipeline", type=click.STRING, default="app")
 @click.argument("table")
-def reset_metadata(pipeline: str, table: str) -> None:
-    app = load_pipeline(pipeline)
+@click.pass_context
+def reset_metadata(ctx: click.Context, table: str) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
 
     dt = app.catalog.get_datatable(app.ds, table)
 
@@ -148,13 +185,12 @@ def reset_metadata(pipeline: str, table: str) -> None:
 
 
 @cli.command()
-@click.option("--pipeline", type=click.STRING, default="app")
-def run(pipeline: str) -> None:
-    with tracer.start_as_current_span("run"):
-        with tracer.start_as_current_span("init"):
-            from datapipe.compute import run_steps
+@click.pass_context
+def run(ctx: click.Context) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
 
-            app = load_pipeline(pipeline)
+    with tracer.start_as_current_span("run"):
+        from datapipe.compute import run_steps
 
         run_steps(app.ds, app.steps)
 
@@ -165,23 +201,26 @@ def db():
 
 
 @db.command()
-@click.option("--pipeline", type=click.STRING, default="app")
-def create_all(pipeline: str) -> None:
-    app = load_pipeline(pipeline)
+@click.pass_context
+def create_all(ctx: click.Context) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
 
     app.ds.meta_dbconn.sqla_metadata.create_all(app.ds.meta_dbconn.con)
 
 
 @cli.command()
-@click.option("--pipeline", type=click.STRING, default="app")
 @click.option("--tables", type=click.STRING, default="*")
 @click.option("--fix", is_flag=True, type=click.BOOL, default=False)
-def lint(pipeline: str, tables: str, fix: bool) -> None:
-    app = load_pipeline(pipeline)
+@click.pass_context
+def lint(ctx: click.Context, tables: str, fix: bool) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
 
     from . import lints
 
-    checks = [lints.LintDeleteTSIsNewerThanUpdateOrProcess()]
+    checks = [
+        lints.LintDeleteTSIsNewerThanUpdateOrProcess(),
+        lints.LintDataWOMeta(),
+    ]
 
     tables_from_catalog = app.catalog.catalog.keys()
     print(f"Pipeline '{pipeline}' contains {len(tables_from_catalog)} tables")
@@ -218,8 +257,16 @@ def lint(pipeline: str, tables: str, fix: bool) -> None:
 
                 if fix:
                     try:
-                        check.fix(dt)
-                        print("... " + colored("FIXED", "green"), end="")
+                        (fix_status, fix_msg) = check.fix(dt)
+                        if fix_status == lints.LintStatus.OK:
+                            print("... " + colored("FIXED", "green"), end="")
+                        elif fix_status == lints.LintStatus.SKIP:
+                            print("... " + colored("SKIPPED", "yellow"), end="")
+                        else:
+                            print("... " + colored("FAILED TO FIX", "red"), end="")
+
+                            if fix_msg:
+                                print(fix_msg, end="")
                     except:
                         print("... " + colored("FAILED TO FIX", "red"), end="")
 
@@ -228,26 +275,62 @@ def lint(pipeline: str, tables: str, fix: bool) -> None:
 
 
 @cli.group()
-def step():
-    pass
+@click.option("--labels", type=click.STRING, default="")
+@click.option("--name", type=click.STRING, default="")
+@click.pass_context
+def step(ctx: click.Context, labels: str, name: str):
+    app: DatapipeApp = ctx.obj["pipeline"]
+
+    labels_dict = parse_labels(labels)
+    steps = filter_steps_by_labels_and_name(app, labels=labels_dict, name_prefix=name)
+
+    ctx.obj["steps"] = steps
 
 
 @step.command()  # type: ignore
-@click.option("--pipeline", type=click.STRING, default="app")
-def list(pipeline: str) -> None:
-    app = load_pipeline(pipeline)
+@click.pass_context
+def list(ctx: click.Context) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
+    steps: List[ComputeStep] = ctx.obj["steps"]
 
-    for step in app.steps:
-        print(step.name)
+    for step in steps:
+        labels = f"\t{step.labels}" if step.labels else ""
+        print(
+            f"{step.name} {labels}\t{tuple(i.name for i in step.get_input_dts())} -> {tuple(i.name for i in step.get_output_dts())}"
+        )
 
 
-@step.command()  # type:ignore
-@click.option("--pipeline", type=click.STRING, default="app")
-@click.argument("step")
-def run(pipeline: str, step: str) -> None:
-    app = load_pipeline(pipeline)
+@step.command()
+@click.pass_context
+def status(ctx: click.Context) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
+    steps: List[ComputeStep] = ctx.obj["steps"]
 
-    steps_to_run = [i for i in app.steps if i.name.startswith(step)]
+    if len(steps) > 0:
+        for step in steps:
+            labels = f"\t{step.labels}" if step.labels else ""
+            print(
+                f"{step.name} {labels}\t{tuple(i.name for i in step.get_input_dts())} -> {tuple(i.name for i in step.get_output_dts())}"
+            )
+
+            if len(step.get_input_dts()) > 0:
+                changed_idx_count = app.ds.get_changed_idx_count(
+                    inputs=step.get_input_dts(),
+                    outputs=step.get_output_dts(),
+                )
+
+                print(f"Idx to process: {changed_idx_count}")
+
+
+@step.command()  # type: ignore
+@click.option("--loop", is_flag=True, default=False, help="Run continuosly in a loop")
+@click.option(
+    "--loop-delay", type=click.INT, default=30, help="Delay between loops in seconds"
+)
+@click.pass_context
+def run(ctx: click.Context, loop: bool, loop_delay: int) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
+    steps_to_run: List[ComputeStep] = ctx.obj["steps"]
 
     if len(steps_to_run) > 0:
         steps_to_run_names = [f"'{i.name}'" for i in steps_to_run]
@@ -255,7 +338,19 @@ def run(pipeline: str, step: str) -> None:
         for step_obj in steps_to_run:
             step_obj.run_full(app.ds)
     else:
-        print(f"There's no step with name '{step}'")
+        return
+
+    while True:
+        if len(steps_to_run) > 0:
+            for step_obj in steps_to_run:
+                step_obj.run_full(app.ds)
+
+        if not loop:
+            break
+        else:
+            print(f"Loop ended, sleeping {loop_delay}s...")
+            time.sleep(loop_delay)
+            print("\n\n")
 
 
 def get_steps_range(
@@ -265,7 +360,9 @@ def get_steps_range(
         print("Missing arguments: FIRST_STEP or LAST_STEP, running all graph.")
         steps_to_run = steps
     if first_step is not None:
-        first_step_idxs = [idx for idx, i in enumerate(steps) if i.name.startswith(first_step)]
+        first_step_idxs = [
+            idx for idx, i in enumerate(steps) if i.name.startswith(first_step)
+        ]
         if len(first_step_idxs) == 0:
             print(f"There's no step with name '{first_step}'")
             return []
@@ -273,7 +370,9 @@ def get_steps_range(
     else:
         first_index = None
     if last_step is not None:
-        last_step_idxs = [idx for idx, i in enumerate(steps) if i.name.startswith(last_step)]
+        last_step_idxs = [
+            idx for idx, i in enumerate(steps) if i.name.startswith(last_step)
+        ]
         if len(last_step_idxs) == 0:
             print(f"There's no step with name '{last_step}'")
             return []
@@ -294,9 +393,7 @@ def get_steps_range(
 @click.option("--last-step", type=click.STRING, default=None, required=False)
 @click.option("--pipeline", type=click.STRING, default="app")
 def run_in_range(
-    pipeline: str,
-    first_step: List[str] = None,
-    last_step: Optional[str] = None
+    pipeline: str, first_step: List[str] = None, last_step: Optional[str] = None
 ) -> None:
 
     app = load_pipeline(pipeline)
@@ -309,10 +406,14 @@ def run_in_range(
 
 
 @cli.command()
-@click.option("--pipeline", type=click.STRING, default="app")
-def api(pipeline: str) -> None:
-    app = load_pipeline(pipeline)
+@click.pass_context
+def api(ctx: click.Context) -> None:
+    app: DatapipeApp = ctx.obj["pipeline"]
 
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0")
+
+
+def main():
+    cli(auto_envvar_prefix="DATAPIPE")
