@@ -119,7 +119,7 @@ def cli(
 
     if trace_stdout:
         processor = BatchSpanProcessor(ConsoleSpanExporter())
-        trace.get_tracer_provider().add_span_processor(processor)
+        trace.get_tracer_provider().add_span_processor(processor)  # type: ignore
 
     if trace_jaeger:
         from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore
@@ -148,7 +148,7 @@ def cli(
         cloud_trace_exporter = CloudTraceSpanExporter(
             resource_regex=r".*",
         )
-        trace.get_tracer_provider().add_span_processor(
+        trace.get_tracer_provider().add_span_processor(  # type: ignore
             BatchSpanProcessor(cloud_trace_exporter)
         )
 
@@ -223,7 +223,7 @@ def lint(ctx: click.Context, tables: str, fix: bool) -> None:
     ]
 
     tables_from_catalog = app.catalog.catalog.keys()
-    print(f"Pipeline '{pipeline}' contains {len(tables_from_catalog)} tables")
+    print(f"Pipeline contains {len(tables_from_catalog)} tables")
 
     if tables == "*":
         tables_to_process = tables_from_catalog
@@ -393,7 +393,7 @@ def get_steps_range(
 @click.option("--last-step", type=click.STRING, default=None, required=False)
 @click.option("--pipeline", type=click.STRING, default="app")
 def run_in_range(
-    pipeline: str, first_step: List[str] = None, last_step: Optional[str] = None
+    pipeline: str, first_step: Optional[str] = None, last_step: Optional[str] = None
 ) -> None:
 
     app = load_pipeline(pipeline)
