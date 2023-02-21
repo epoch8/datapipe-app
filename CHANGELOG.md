@@ -1,8 +1,9 @@
-# WIP: 0.3.2
+# WIP 0.3.2
 
 * Add `DatapipeApp.api` subapp to mount extra APIs
 * Add `step status` command that shows status (number of idx's to process) for a
   specific step
+* Add support for filtering by labels in `step` commands
 
 # 0.3.1
 
