@@ -331,14 +331,8 @@ def status(ctx: click.Context) -> None:
 def run(ctx: click.Context, loop: bool, loop_delay: int) -> None:
     app: DatapipeApp = ctx.obj["pipeline"]
     steps_to_run: List[ComputeStep] = ctx.obj["steps"]
-
-    if len(steps_to_run) > 0:
-        steps_to_run_names = [f"'{i.name}'" for i in steps_to_run]
-        print(f"Running following steps: {', '.join(steps_to_run_names)}")
-        for step_obj in steps_to_run:
-            step_obj.run_full(app.ds)
-    else:
-        return
+    steps_to_run_names = [f"'{i.name}'" for i in steps_to_run]
+    print(f"Running following steps: {', '.join(steps_to_run_names)}")
 
     while True:
         if len(steps_to_run) > 0:
