@@ -43,7 +43,7 @@ class GraphResponse(BaseModel):
 class UpdateDataRequest(BaseModel):
     table_name: str
     upsert: Optional[List[Dict]] = None
-    run_changelist: bool = False
+    enable_changelist: bool = True
     # delete: List[Dict] = None
 
 
@@ -84,7 +84,7 @@ def update_data(
     #     )
 
     #     cl.append(dt.name, idx)
-    if req.run_changelist:
+    if req.enable_changelist:
         run_steps_changelist(ds, steps, cl)
 
     return UpdateDataResponse(result="ok")
