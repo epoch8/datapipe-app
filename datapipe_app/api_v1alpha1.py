@@ -43,7 +43,7 @@ class GraphResponse(BaseModel):
 class UpdateDataRequest(BaseModel):
     table_name: str
     upsert: Optional[List[Dict]] = None
-    run_changelist: bool = False
+    run_changelist: bool = True
     # delete: List[Dict] = None
 
 
