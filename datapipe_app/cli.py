@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List
+from typing import Any, Dict, Iterator, List
 from typing import Optional, List
 
 import os.path
@@ -6,6 +6,10 @@ import sys
 import time
 
 import click
+import rich
+from rich import print as rprint
+
+from datapipe.types import Labels
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -20,6 +24,8 @@ from datapipe.compute import ComputeStep
 
 
 tracer = trace.get_tracer("datapipe_app")
+
+rich.reconfigure(highlight=False)
 
 
 def load_pipeline(pipeline_name: str) -> DatapipeApp:
@@ -45,25 +51,21 @@ def load_pipeline(pipeline_name: str) -> DatapipeApp:
     return app
 
 
-def parse_labels(labels: str) -> Dict[str, str]:
+def parse_labels(labels: str) -> Labels:
     if labels == "":
-        return {}
+        return []
 
-    labels_dict = dict(kv.split("=") for kv in labels.split(","))
+    labels_list = [kv.split("=") for kv in labels.split(",")]
 
-    return labels_dict
+    return labels_list
 
 
-def filter_steps_by_labels_and_name(
-    app: DatapipeApp, labels: Dict[str, str] = {}, name_prefix: str = ""
-) -> List[ComputeStep]:
+def filter_steps_by_labels_and_name(app: DatapipeApp, labels: Labels = [], name_prefix: str = "") -> List[ComputeStep]:
     res = []
 
     for step in app.steps:
-        for k, v in labels.items():
-            if k not in step.labels:
-                break
-            if step.labels[k] != v:
+        for k, v in labels:
+            if (k, v) not in step.labels:
                 break
         else:
             if step.name.startswith(name_prefix):
@@ -277,17 +279,35 @@ def step(ctx: click.Context, labels: str, name: str):
     ctx.obj["steps"] = steps
 
 
+def to_human_repr(step) -> Dict:
+    res: Dict[str, Any] = {"name": f"[green][bold]{step.name}[/bold][/green]"}
+
+    if step.labels:
+        res["labels"] = " ".join([f"[magenta]{k}={v}[/magenta]" for (k, v) in step.labels])
+
+    if inputs := [i.name for i in step.get_input_dts()]:
+        res["inputs"] = ", ".join(inputs)
+
+    if outputs := [i.name for i in step.get_output_dts()]:
+        res["outputs"] = ", ".join(outputs)
+
+    return res
+
+
 @step.command()  # type: ignore
 @click.pass_context
 def list(ctx: click.Context) -> None:
+    from yaml import dump
+
     app: DatapipeApp = ctx.obj["pipeline"]
     steps: List[ComputeStep] = ctx.obj["steps"]
 
+    out: Dict = {"steps": []}
+
     for step in steps:
-        labels = f"\t{step.labels}" if step.labels else ""
-        print(
-            f"{step.name} {labels}\t{tuple(i.name for i in step.get_input_dts())} -> {tuple(i.name for i in step.get_output_dts())}"
-        )
+        out["steps"].append(to_human_repr(step))
+
+    rprint(dump(out, sort_keys=False))
 
 
 @step.command()
