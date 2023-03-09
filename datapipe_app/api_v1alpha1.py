@@ -138,6 +138,7 @@ def get_data_post(
     # Data table has no delete_ts
     # sql = sql.where(sql_table.c.delete_ts.is_(None))
     if req.order_by:
+        sql = sql.where(text(f"{req.order_by} is not null"))
         sql = sql.order_by(text(f"{req.order_by} {req.order}"))
     sql = sql.offset(req.page * req.page_size).limit(req.page_size)
 
