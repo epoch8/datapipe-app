@@ -14,7 +14,7 @@ from datapipe.types import ChangeList
 from fastapi import FastAPI, Response, Query
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.expression import select, desc, asc
+from sqlalchemy.sql.expression import select, desc, asc, text
 from sqlalchemy.sql.functions import count
 
 
@@ -56,7 +56,7 @@ class GetDataRequest(BaseModel):
     filters: Dict[str, Any] = {}
     page: int = 0
     page_size: int = 20
-    order_by: Optional[List[str]] = None
+    order_by: str = None
     order: Literal["asc", "desc"] = "asc"
 
 
@@ -138,10 +138,7 @@ def get_data_post(
     # Data table has no delete_ts
     # sql = sql.where(sql_table.c.delete_ts.is_(None))
     if req.order_by:
-        if req.order == 'asc':
-            sql = sql.order_by(asc(req.order_by))
-        elif req.order == 'desc':
-            sql = sql.order_by(desc(req.order_by))
+        sql = sql.order_by(text(f"{req.order_by} {req.order}"))
     sql = sql.offset(req.page * req.page_size).limit(req.page_size)
 
     for col, val in req.filters.items():
@@ -158,6 +155,9 @@ def get_data_post(
 
     if not meta_df.empty:
         data_df = dt.get_data(meta_df)
+        if req.order_by is not None:
+            ascending = req.order == 'asc'
+            data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
     else:
         data_df = pd.DataFrame()
 
