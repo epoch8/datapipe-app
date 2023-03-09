@@ -172,8 +172,7 @@ def reset_metadata(ctx: click.Context, table: str) -> None:
     app: DatapipeApp = ctx.obj["pipeline"]
 
     dt = app.catalog.get_datatable(app.ds, table)
-
-    app.ds.meta_dbconn.con.execute(dt.meta_table.sql_table.update().values(process_ts=0, update_ts=0))
+    dt.reset_metadata()
 
 
 @cli.command()
