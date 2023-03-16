@@ -20,6 +20,7 @@ fastapi = ">=0.69.0"
 uvicorn = {extras = ["standard"], version = ">= 0.17.0"}
 click = ">=7.1.2"
 termcolor = "^2.1.0"
+rich = "^13.3.2"
 
 datapipe-core = {version=">=0.11.12-dev.1, <0.12", allow-prereleases = true}
 # datapipe-core = {path="../datapipe"}
