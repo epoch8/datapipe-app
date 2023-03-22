@@ -4,6 +4,8 @@
 * Add `step status` command that shows status (number of idx's to process) for a
   specific step
 * Add support for filtering by labels in `step` commands
+* Move cli to `datapipe-core` module
+* Rename `DatapipeApp` to `DatapipeAPI`
 
 # 0.3.1
 

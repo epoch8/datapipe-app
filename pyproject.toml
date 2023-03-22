@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datapipe-app"
-version = "0.3.2-dev.3"
+version = "0.3.2-dev.4"
 description = ""
 authors = ["Andrey Tatarinov <a@tatarinov.co>"]
 
@@ -19,7 +19,6 @@ python = ">=3.8,<3.11"
 fastapi = ">=0.69.0"
 uvicorn = {extras = ["standard"], version = ">= 0.17.0"}
 click = ">=7.1.2"
-termcolor = "^2.1.0"
 rich = "^13.3.2"
 
 datapipe-core = {version=">=0.11.12-dev.1, <0.12", allow-prereleases = true}
@@ -36,8 +35,8 @@ opentelemetry-exporter-jaeger = {version="^1.8.0", optional=true}
 gcp = ["opentelemetry-exporter-gcp-trace"]
 jaeger = ["opentelemetry-exporter-jaeger"]
 
-[tool.poetry.scripts]
-datapipe = 'datapipe_app.cli:main'
+[tool.poetry.plugins."datapipe.cli"]
+datapipe_app = "datapipe_app.cli:register_commands"
 
 [tool.poetry.dev-dependencies]
 mypy = "*"
