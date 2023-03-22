@@ -284,10 +284,10 @@ def to_human_repr(step) -> Dict:
     if step.labels:
         res["labels"] = " ".join([f"[magenta]{k}={v}[/magenta]" for (k, v) in step.labels])
 
-    if inputs := [i.name for i in step.get_input_dts()]:
+    if inputs := [i.name for i in step.input_dts]:
         res["inputs"] = ", ".join(inputs)
 
-    if outputs := [i.name for i in step.get_output_dts()]:
+    if outputs := [i.name for i in step.output_dts]:
         res["outputs"] = ", ".join(outputs)
 
     return res
@@ -319,13 +319,13 @@ def status(ctx: click.Context) -> None:
         for step in steps:
             labels = f"\t{step.labels}" if step.labels else ""
             print(
-                f"{step.name} {labels}\t{tuple(i.name for i in step.get_input_dts())} -> {tuple(i.name for i in step.get_output_dts())}"
+                f"{step.name} {labels}\t{tuple(i.name for i in step.input_dts)} -> {tuple(i.name for i in step.output_dts)}"
             )
 
-            if len(step.get_input_dts()) > 0:
+            if len(step.input_dts) > 0:
                 changed_idx_count = app.ds.get_changed_idx_count(
-                    inputs=step.get_input_dts(),
-                    outputs=step.get_output_dts(),
+                    inputs=step.input_dts,
+                    outputs=step.output_dts,
                 )
 
                 print(f"Idx to process: {changed_idx_count}")
