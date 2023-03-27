@@ -56,7 +56,7 @@ class GetDataRequest(BaseModel):
     filters: Dict[str, Any] = {}
     page: int = 0
     page_size: int = 20
-    order_by: str = None
+    order_by: Optional[str] = None
     order: Literal["asc", "desc"] = "asc"
 
 
@@ -188,8 +188,8 @@ def DatpipeAPIv1(
             )
 
         def pipeline_step_response(step):
-            inputs = [i.name for i in step.get_input_dts()]
-            outputs = [i.name for i in step.get_output_dts()]
+            inputs = [i.name for i in step.input_dts]
+            outputs = [i.name for i in step.output_dts]
             inputs_join = ",".join(inputs)
             outputs_join = ",".join(outputs)
             id_ = f"{step.name}({inputs_join})->({outputs_join})"
@@ -287,6 +287,9 @@ def DatpipeAPIv1(
         data_field: List = Query(..., title="Fields to get from data"),
     ) -> None:
         update_data(
+            ds=ds,
+            catalog=catalog,
+            steps=steps,
             req=UpdateDataRequest(
                 table_name=table_name,
                 upsert=[
