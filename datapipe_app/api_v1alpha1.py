@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import pandas as pd
 from datapipe.compute import (
@@ -14,7 +14,7 @@ from datapipe.types import ChangeList
 from fastapi import FastAPI, Response, Query
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.expression import select
+from sqlalchemy.sql.expression import select, desc, asc, text
 from sqlalchemy.sql.functions import count
 
 
@@ -43,7 +43,131 @@ class GraphResponse(BaseModel):
 class UpdateDataRequest(BaseModel):
     table_name: str
     upsert: Optional[List[Dict]] = None
+    enable_changelist: bool = True
     # delete: List[Dict] = None
+
+
+class UpdateDataResponse(BaseModel):
+    result: str
+
+
+class GetDataRequest(BaseModel):
+    table: str
+    filters: Dict[str, Any] = {}
+    page: int = 0
+    page_size: int = 20
+    order_by: Optional[str] = None
+    order: Literal["asc", "desc"] = "asc"
+
+
+class GetDataResponse(BaseModel):
+    page: int
+    page_size: int
+    total: int
+    data: List[Dict]
+
+
+def update_data(
+    ds: DataStore, catalog: Catalog, steps: List[ComputeStep],
+    req: UpdateDataRequest
+) -> UpdateDataResponse:
+    dt = catalog.get_datatable(ds, req.table_name)
+
+    cl = ChangeList()
+
+    if req.upsert is not None and len(req.upsert) > 0:
+        idx = dt.store_chunk(pd.DataFrame.from_records(req.upsert))
+
+        cl.append(dt.name, idx)
+
+    # if req.delete is not None and len(req.delete) > 0:
+    #     idx = dt.delete_by_idx(
+    #         pd.DataFrame.from_records(req.delete)
+    #     )
+
+    #     cl.append(dt.name, idx)
+    if req.enable_changelist:
+        run_steps_changelist(ds, steps, cl)
+
+    return UpdateDataResponse(result="ok")
+
+
+def get_data_get(
+    ds: DataStore, catalog: Catalog,
+    table: str, page: int = 0, page_size: int = 20
+) -> GetDataResponse:
+    dt = catalog.get_datatable(ds, table)
+
+    meta_schema = dt.meta_table.sql_schema
+    meta_tbl = dt.meta_table.sql_table
+
+    sql = select(*meta_schema)
+    sql = sql.where(meta_tbl.c.delete_ts.is_(None))
+    sql = sql.offset(page * page_size).limit(page_size)
+
+    meta_df = pd.read_sql_query(
+        sql,
+        con=ds.meta_dbconn.con,
+    )
+
+    if not meta_df.empty:
+        data_df = dt.get_data(meta_df)
+    else:
+        data_df = pd.DataFrame()
+
+    return GetDataResponse(
+        page=page,
+        page_size=page_size,
+        total=len(meta_df),
+        data=data_df.fillna("").to_dict(orient="records"),
+    )
+
+
+def get_data_post(
+    ds: DataStore, catalog: Catalog,
+    req: GetDataRequest
+) -> GetDataResponse:
+    dt = catalog.get_datatable(ds, req.table)
+
+    assert isinstance(dt.table_store, TableStoreDB)
+
+    sql_schema = dt.table_store.data_sql_schema
+    sql_table = dt.table_store.data_table
+
+    sql = select(*sql_schema).select_from(sql_table)
+    # Data table has no delete_ts
+    # sql = sql.where(sql_table.c.delete_ts.is_(None))
+    if req.order_by:
+        sql = sql.where(text(f"{req.order_by} is not null"))
+        sql = sql.order_by(text(f"{req.order_by} {req.order}"))
+    sql = sql.offset(req.page * req.page_size).limit(req.page_size)
+
+    for col, val in req.filters.items():
+        sql = sql.where(sql_table.c[col] == val)
+
+    sql_count = select(count()).select_from(sql_table)
+    for col, val in req.filters.items():
+        sql_count = sql_count.where(sql_table.c[col] == val)
+
+    meta_df = pd.read_sql_query(
+        sql,
+        con=ds.meta_dbconn.con,
+    )
+
+    if not meta_df.empty:
+        data_df = dt.get_data(meta_df)
+        if req.order_by is not None:
+            ascending = req.order == 'asc'
+            data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
+    else:
+        data_df = pd.DataFrame()
+
+    return GetDataResponse(
+        page=req.page,
+        page_size=req.page_size,
+        total=dt.table_store.dbconn.con.execute(sql_count).fetchone()[0],
+        data=data_df.fillna("").to_dict(orient="records"),
+    )
 
 
 def DatpipeAPIv1(
@@ -64,8 +188,8 @@ def DatpipeAPIv1(
             )
 
         def pipeline_step_response(step):
-            inputs = [i.name for i in step.get_input_dts()]
-            outputs = [i.name for i in step.get_output_dts()]
+            inputs = [i.name for i in step.input_dts]
+            outputs = [i.name for i in step.output_dts]
             inputs_join = ",".join(inputs)
             outputs_join = ",".join(outputs)
             id_ = f"{step.name}({inputs_join})->({outputs_join})"
@@ -86,106 +210,18 @@ def DatpipeAPIv1(
             pipeline=[pipeline_step_response(step) for step in steps],
         )
 
-    @app.post("/update-data")
-    def update_data(req: UpdateDataRequest):
-        dt = catalog.get_datatable(ds, req.table_name)
-
-        cl = ChangeList()
-
-        if req.upsert is not None and len(req.upsert) > 0:
-            idx = dt.store_chunk(pd.DataFrame.from_records(req.upsert))
-
-            cl.append(dt.name, idx)
-
-        # if req.delete is not None and len(req.delete) > 0:
-        #     idx = dt.delete_by_idx(
-        #         pd.DataFrame.from_records(req.delete)
-        #     )
-
-        #     cl.append(dt.name, idx)
-
-        run_steps_changelist(ds, steps, cl)
-
-        return {"result": "ok"}
-
-    class GetDataRequest(BaseModel):
-        table: str
-        filters: Dict[str, Any] = {}
-        page: int = 0
-        page_size: int = 20
-
-    class GetDataResponse(BaseModel):
-        page: int
-        page_size: int
-        total: int
-        data: List[Dict]
+    @app.post("/update-data", response_model=UpdateDataResponse)
+    def update_data_api(req: UpdateDataRequest) -> UpdateDataResponse:
+        return update_data(ds, catalog, steps, req)
 
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
     @app.get("/get-data", response_model=GetDataResponse)
-    def get_data_get(table: str, page: int = 0, page_size: int = 20) -> GetDataResponse:
-        dt = catalog.get_datatable(ds, table)
-
-        meta_schema = dt.meta_table.sql_schema
-        meta_tbl = dt.meta_table.sql_table
-
-        sql = select(*meta_schema)
-        sql = sql.where(meta_tbl.c.delete_ts.is_(None))
-        sql = sql.offset(page * page_size).limit(page_size)
-
-        meta_df = pd.read_sql_query(
-            sql,
-            con=ds.meta_dbconn.con,
-        )
-
-        if not meta_df.empty:
-            data_df = dt.get_data(meta_df)
-        else:
-            data_df = pd.DataFrame()
-
-        return GetDataResponse(
-            page=page,
-            page_size=page_size,
-            total=len(meta_df),
-            data=data_df.fillna("").to_dict(orient="records"),
-        )
+    def get_data_get_api(table: str, page: int = 0, page_size: int = 20) -> GetDataResponse:
+        return get_data_get(ds, catalog, table, page, page_size)
 
     @app.post("/get-data", response_model=GetDataResponse)
-    def get_data_post(req: GetDataRequest) -> GetDataResponse:
-        dt = catalog.get_datatable(ds, req.table)
-
-        assert isinstance(dt.table_store, TableStoreDB)
-
-        sql_schema = dt.table_store.data_sql_schema
-        sql_table = dt.table_store.data_table
-
-        sql = select(*sql_schema).select_from(sql_table)
-        # Data table has no delete_ts
-        # sql = sql.where(sql_table.c.delete_ts.is_(None))
-        sql = sql.offset(req.page * req.page_size).limit(req.page_size)
-
-        for col, val in req.filters.items():
-            sql = sql.where(sql_table.c[col] == val)
-
-        sql_count = select(count()).select_from(sql_table)
-        for col, val in req.filters.items():
-            sql_count = sql_count.where(sql_table.c[col] == val)
-
-        meta_df = pd.read_sql_query(
-            sql,
-            con=ds.meta_dbconn.con,
-        )
-
-        if not meta_df.empty:
-            data_df = dt.get_data(meta_df)
-        else:
-            data_df = pd.DataFrame()
-
-        return GetDataResponse(
-            page=req.page,
-            page_size=req.page_size,
-            total=dt.table_store.dbconn.con.execute(sql_count).fetchone()[0],
-            data=data_df.fillna("").to_dict(orient="records"),
-        )
+    def get_data_post_api(req: GetDataRequest) -> GetDataResponse:
+        return get_data_post(ds, catalog, req)
 
     class FocusFilter(BaseModel):
         table_name: str
@@ -251,6 +287,9 @@ def DatpipeAPIv1(
         data_field: List = Query(..., title="Fields to get from data"),
     ) -> None:
         update_data(
+            ds=ds,
+            catalog=catalog,
+            steps=steps,
             req=UpdateDataRequest(
                 table_name=table_name,
                 upsert=[
@@ -273,6 +312,7 @@ def DatpipeAPIv1(
 
         with fsspec.open(filepath) as f:
             mime = mimetypes.guess_type(filepath)
+            assert mime[0] is not None
             return Response(content=f.read(), media_type=mime[0])
 
     FastAPIInstrumentor.instrument_app(app, excluded_urls="docs")
