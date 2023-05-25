@@ -1,6 +1,7 @@
 import click
-
 from datapipe.compute import DatapipeApp
+
+from datapipe_app import DatapipeAPI
 
 
 def register_commands(cli: click.Group):
@@ -12,5 +13,8 @@ def register_commands(cli: click.Group):
         app: DatapipeApp = ctx.obj["pipeline"]
 
         import uvicorn
+
+        if not isinstance(app, DatapipeAPI):
+            app = DatapipeAPI(app=app)
 
         uvicorn.run(app, host=host, port=port)
