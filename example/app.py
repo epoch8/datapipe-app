@@ -1,4 +1,5 @@
-from pipeline import ds, catalog, pipeline, dbconn
-from datapipe_app import DatapipeApp
+from pipeline import catalog, ds, pipeline
 
-app = DatapipeApp(ds, catalog, pipeline)
+from datapipe_app import DatapipeAPI
+
+app = DatapipeAPI(ds, catalog, pipeline)
