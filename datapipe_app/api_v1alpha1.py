@@ -10,7 +10,7 @@ from datapipe.compute import (
     run_steps_changelist,
 )
 from datapipe.store.database import TableStoreDB
-from datapipe.types import ChangeList
+from datapipe.types import ChangeList, Labels
 from fastapi import FastAPI, Response, Query
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
@@ -44,6 +44,7 @@ class UpdateDataRequest(BaseModel):
     table_name: str
     upsert: Optional[List[Dict]] = None
     enable_changelist: bool = True
+    labels: Labels = []
     # delete: List[Dict] = None
 
 
@@ -67,6 +68,23 @@ class GetDataResponse(BaseModel):
     data: List[Dict]
 
 
+def filter_steps_by_labels(
+    steps: List[ComputeStep],
+    labels: Labels = [],
+    name_prefix: str = ""
+) -> List[ComputeStep]:
+    res = []
+    for step in steps:
+        for k, v in labels:
+            if (k, v) not in step.labels:
+                break
+        else:
+            if step.name.startswith(name_prefix):
+                res.append(step)
+
+    return res
+
+
 def update_data(
     ds: DataStore, catalog: Catalog, steps: List[ComputeStep],
     req: UpdateDataRequest
@@ -86,6 +104,7 @@ def update_data(
     #     )
 
     #     cl.append(dt.name, idx)
+    steps = filter_steps_by_labels(steps, labels=req.labels)
     if req.enable_changelist:
         run_steps_changelist(ds, steps, cl)
 
