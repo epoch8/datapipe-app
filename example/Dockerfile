@@ -5,7 +5,7 @@ ADD frontend/ /srv/
 
 RUN yarn && yarn build
 
-FROM python:3.8
+FROM python:3.10
 
 ENV PYTHONUNBUFFERED 1
 

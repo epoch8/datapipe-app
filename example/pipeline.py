@@ -1,11 +1,10 @@
 import os
-from sqlalchemy import JSON, Column, Integer, String, Boolean
 
 import pandas as pd
-
+from datapipe.compute import Catalog, DataStore, Pipeline, Table
 from datapipe.core_steps import BatchTransform
-from datapipe.compute import DataStore, Catalog, Table, Pipeline, build_compute
-from datapipe.store.database import TableStoreDB, DBConn
+from datapipe.store.database import DBConn, TableStoreDB
+from sqlalchemy import JSON, Boolean, Column, Integer, String
 
 DB_CONN_URI = os.environ.get("DB_CONN_URI", "sqlite:///store.sqlite")
 
@@ -130,10 +129,8 @@ pipeline = Pipeline(
             outputs=["user_profile", "user_lang"],
         ),
         BatchTransform(
-            agg_profile,
-            inputs=["events2"],
-            outputs=["user_profile2", "user_lang2"]
-        )
+            agg_profile, inputs=["events2"], outputs=["user_profile2", "user_lang2"]
+        ),
     ]
 )
 

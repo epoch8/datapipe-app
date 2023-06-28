@@ -10,11 +10,11 @@ from datapipe.compute import (
     run_steps_changelist,
 )
 from datapipe.store.database import TableStoreDB
-from datapipe.types import ChangeList, Labels
-from fastapi import FastAPI, Response, Query
+from datapipe.types import ChangeList
+from fastapi import FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.expression import select, desc, asc, text
+from sqlalchemy.sql.expression import select, text
 from sqlalchemy.sql.functions import count
 
 
@@ -86,8 +86,10 @@ def filter_steps_by_labels(
 
 
 def update_data(
-    ds: DataStore, catalog: Catalog, steps: List[ComputeStep],
-    req: UpdateDataRequest
+    ds: DataStore,
+    catalog: Catalog,
+    steps: List[ComputeStep],
+    req: UpdateDataRequest,
 ) -> UpdateDataResponse:
     dt = catalog.get_datatable(ds, req.table_name)
 
@@ -112,8 +114,11 @@ def update_data(
 
 
 def get_data_get(
-    ds: DataStore, catalog: Catalog,
-    table: str, page: int = 0, page_size: int = 20
+    ds: DataStore,
+    catalog: Catalog,
+    table: str,
+    page: int = 0,
+    page_size: int = 20,
 ) -> GetDataResponse:
     dt = catalog.get_datatable(ds, table)
 
@@ -143,8 +148,7 @@ def get_data_get(
 
 
 def get_data_post(
-    ds: DataStore, catalog: Catalog,
-    req: GetDataRequest
+    ds: DataStore, catalog: Catalog, req: GetDataRequest
 ) -> GetDataResponse:
     dt = catalog.get_datatable(ds, req.table)
 
@@ -176,7 +180,7 @@ def get_data_post(
     if not meta_df.empty:
         data_df = dt.get_data(meta_df)
         if req.order_by is not None:
-            ascending = req.order == 'asc'
+            ascending = req.order == "asc"
             data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
     else:
         data_df = pd.DataFrame()
@@ -235,7 +239,11 @@ def DatpipeAPIv1(
 
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
     @app.get("/get-data", response_model=GetDataResponse)
-    def get_data_get_api(table: str, page: int = 0, page_size: int = 20) -> GetDataResponse:
+    def get_data_get_api(
+        table: str,
+        page: int = 0,
+        page_size: int = 20,
+    ) -> GetDataResponse:
         return get_data_get(ds, catalog, table, page, page_size)
 
     @app.post("/get-data", response_model=GetDataResponse)
@@ -314,13 +322,14 @@ def DatpipeAPIv1(
                 upsert=[
                     {
                         **{
-                            k: v for k, v in request["task"]["data"].items()
+                            k: v
+                            for k, v in request["task"]["data"].items()
                             if k in data_field
                         },
                         "annotations": [request["annotation"]],
                     }
                 ],
-            )
+            ),
         )
 
     @app.get("/get-file")

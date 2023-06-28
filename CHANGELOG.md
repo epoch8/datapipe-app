@@ -1,11 +1,18 @@
-# WIP 0.3.2
+# 0.4.0
 
-* Add `DatapipeApp.api` subapp to mount extra APIs
+## Major changes
+* Move cli to `datapipe-core` module
+* Move `DatapipeApp` to `datapipe-core`
+
+## Improvements
 * Add `step status` command that shows status (number of idx's to process) for a
   specific step
+* Add `DatapipeAPI` wrapper for `DatapipeApp`
+
+# 0.3.2
+
+* Add `DatapipeApp.api` subapp to mount extra APIs
 * Add support for filtering by labels in `step` commands
-* Move cli to `datapipe-core` module
-* Rename `DatapipeApp` to `DatapipeAPI`
 
 # 0.3.1
 
