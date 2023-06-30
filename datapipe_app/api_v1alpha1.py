@@ -10,7 +10,7 @@ from datapipe.compute import (
     run_steps_changelist,
 )
 from datapipe.store.database import TableStoreDB
-from datapipe.types import ChangeList
+from datapipe.types import ChangeList, Labels
 from fastapi import FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
