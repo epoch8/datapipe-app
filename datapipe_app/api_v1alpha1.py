@@ -122,7 +122,7 @@ def get_data_get_pd(
     filters: Optional[IndexDF] = None,
     order_by: Optional[List[str]] = None,
     order: Literal["asc", "desc"] = "asc"
-) -> Tuple[int, pd.DataFrame]:
+) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
     dt = catalog.get_datatable(ds, table)
 
     meta_schema = dt.meta_table.sql_schema
