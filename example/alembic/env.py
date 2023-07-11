@@ -16,7 +16,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from app import dbconn
+from pipeline import dbconn
 
 target_metadata = [dbconn.sqla_metadata]
 
