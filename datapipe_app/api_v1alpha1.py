@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import pandas as pd
 from datapipe.compute import (
@@ -10,11 +10,11 @@ from datapipe.compute import (
     run_steps_changelist,
 )
 from datapipe.store.database import TableStoreDB
-from datapipe.types import ChangeList, Labels
+from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.expression import select, text
+from sqlalchemy.sql.expression import select, text, and_
 from sqlalchemy.sql.functions import count
 
 
@@ -113,13 +113,14 @@ def update_data(
     return UpdateDataResponse(result="ok")
 
 
-def get_data_get(
+def get_data_get_pd(
     ds: DataStore,
     catalog: Catalog,
     table: str,
     page: int = 0,
     page_size: int = 20,
-) -> GetDataResponse:
+    filters: Optional[IndexDF] = None
+) -> Tuple[int, pd.DataFrame]:
     dt = catalog.get_datatable(ds, table)
 
     meta_schema = dt.meta_table.sql_schema
@@ -127,22 +128,47 @@ def get_data_get(
 
     sql = select(*meta_schema)
     sql = sql.where(meta_tbl.c.delete_ts.is_(None))
-    sql = sql.offset(page * page_size).limit(page_size)
-
-    meta_df = pd.read_sql_query(
-        sql,
-        con=ds.meta_dbconn.con,
-    )
-
-    if not meta_df.empty:
-        data_df = dt.get_data(meta_df)
+    if filters is not None:
+        sql = sql.where(
+            and_(
+                *[meta_tbl.c[column].in_(filters[column]) for column in filters.columns],
+                meta_tbl.c["delete_ts"].is_(None)
+            )
+        )
     else:
-        data_df = pd.DataFrame()
+        sql = sql.where(meta_tbl.c["delete_ts"].is_(None))
+    sql_count = select(count()).select_from(sql)
+    total_count = ds.meta_dbconn.con.execute(sql_count).scalar()
+    if page * page_size > total_count:
+        data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
+    else:
+        sql = sql.offset(page * page_size).limit(page_size)
+        meta_df = pd.read_sql_query(
+            sql,
+            con=ds.meta_dbconn.con,
+        )
 
+        if not meta_df.empty:
+            data_df = dt.get_data(meta_df)
+        else:
+            data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
+
+    return total_count, data_df
+
+
+def get_data_get(
+    ds: DataStore,
+    catalog: Catalog,
+    table: str,
+    page: int = 0,
+    page_size: int = 20,
+    filters: Optional[IndexDF] = None
+) -> GetDataResponse:
+    total_count, data_df = get_data_get_pd(ds, catalog, table, page, page_size, filters)
     return GetDataResponse(
         page=page,
         page_size=page_size,
-        total=len(meta_df),
+        total=total_count,
         data=data_df.fillna("").to_dict(orient="records"),
     )
 
