@@ -14,7 +14,7 @@ from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.expression import select, text, and_
+from sqlalchemy.sql.expression import select, text, and_, desc, asc
 from sqlalchemy.sql.functions import count
 
 
@@ -119,7 +119,9 @@ def get_data_get_pd(
     table: str,
     page: int = 0,
     page_size: int = 20,
-    filters: Optional[IndexDF] = None
+    filters: Optional[IndexDF] = None,
+    order_by: Optional[List[str]] = None,
+    order: Literal["asc", "desc"] = "asc"
 ) -> Tuple[int, pd.DataFrame]:
     dt = catalog.get_datatable(ds, table)
 
@@ -142,6 +144,15 @@ def get_data_get_pd(
     if page * page_size > total_count:
         data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
     else:
+        if order_by is not None:
+            if order == "asc":
+                sql = sql.order_by(
+                    asc(*[meta_tbl.c[column] for column in order_by]),
+                )
+            elif order == "desc":
+                sql = sql.order_by(
+                    desc(*[meta_tbl.c[column] for column in order_by]),
+                )
         sql = sql.offset(page * page_size).limit(page_size)
         meta_df = pd.read_sql_query(
             sql,
@@ -150,10 +161,11 @@ def get_data_get_pd(
 
         if not meta_df.empty:
             data_df = dt.get_data(meta_df)
+            data_df = meta_df.merge(data_df)[data_df.columns]  # save order
         else:
             data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
 
-    return total_count, data_df
+    return total_count, meta_df, data_df
 
 
 def get_data_get(
@@ -162,9 +174,14 @@ def get_data_get(
     table: str,
     page: int = 0,
     page_size: int = 20,
-    filters: Optional[IndexDF] = None
+    filters: Optional[IndexDF] = None,
+    order_by: Optional[List[str]] = None,
+    order: Optional[Literal["asc", "desc"]] = None
 ) -> GetDataResponse:
-    total_count, data_df = get_data_get_pd(ds, catalog, table, page, page_size, filters)
+    total_count, meta_df, data_df = get_data_get_pd(
+        ds, catalog, table, page, page_size, filters,
+        order_by, order
+    )
     return GetDataResponse(
         page=page,
         page_size=page_size,
