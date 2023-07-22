@@ -265,7 +265,7 @@ def DatpipeAPIv1(
             total=len(existing_idx),
             data=dt.get_data(
                 existing_idx.iloc[
-                    req.page * req.page_size : (req.page + 1) * req.page_size
+                    req.page * req.page_size : (req.page + 1) * req.page_size  # noqa: E203
                 ]
             ).to_dict(orient="records"),
         )
