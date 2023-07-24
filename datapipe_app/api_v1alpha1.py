@@ -291,54 +291,28 @@ def DatpipeAPIv1(
     @app.post("/labelstudio-webhook")
     def labelstudio_webhook(
         request: Dict,
-        table_name: str = Query(..., title="Input table name"),
-        data_field: List = Query(..., title="Fields to get from data"),
-    ) -> None:
-        update_data(
-            ds=ds,
-            catalog=catalog,
-            steps=steps,
-            req=UpdateDataRequest(
-                table_name=table_name,
-                upsert=[
-                    {
-                        **{
-                            k: v
-                            for k, v in request["task"]["data"].items()
-                            if k in data_field
-                        },
-                        "annotations": [request["annotation"]],
-                    }
-                ],
-            ),
-        )
-
-    @app.post("/labelstudio-webhook-background")
-    def labelstudio_webhook_background(
-        request: Dict,
         background_tasks: BackgroundTasks,
         table_name: str = Query(..., title="Input table name"),
         data_field: List = Query(..., title="Fields to get from data"),
+        background: bool = Query(False, title="Run as Background Task (default = False)")
     ) -> None:
-        background_tasks.add_task(
-            update_data,
-            ds=ds,
-            catalog=catalog,
-            steps=steps,
-            req=UpdateDataRequest(
-                table_name=table_name,
-                upsert=[
-                    {
-                        **{
-                            k: v
-                            for k, v in request["task"]["data"].items()
-                            if k in data_field
-                        },
-                        "annotations": [request["annotation"]],
-                    }
-                ],
-            ),
+        req = UpdateDataRequest(
+            table_name=table_name,
+            upsert=[
+                {
+                    **{
+                        k: v
+                        for k, v in request["task"]["data"].items()
+                        if k in data_field
+                    },
+                    "annotations": [request["annotation"]],
+                }
+            ],
         )
+        if background:
+            background_tasks.add_task(update_data, ds=ds, catalog=catalog, steps=steps, req=req)
+        else:
+            update_data(ds=ds, catalog=catalog, steps=steps, req=req)
 
     @app.get("/get-file")
     def get_file(filepath: str):
