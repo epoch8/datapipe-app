@@ -11,7 +11,7 @@ from datapipe.compute import (
 )
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList
-from fastapi import FastAPI, Query, Response
+from fastapi import BackgroundTasks, FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import select, text
@@ -295,6 +295,33 @@ def DatpipeAPIv1(
         data_field: List = Query(..., title="Fields to get from data"),
     ) -> None:
         update_data(
+            ds=ds,
+            catalog=catalog,
+            steps=steps,
+            req=UpdateDataRequest(
+                table_name=table_name,
+                upsert=[
+                    {
+                        **{
+                            k: v
+                            for k, v in request["task"]["data"].items()
+                            if k in data_field
+                        },
+                        "annotations": [request["annotation"]],
+                    }
+                ],
+            ),
+        )
+
+    @app.post("/labelstudio-webhook-background")
+    def labelstudio_webhook_background(
+        request: Dict,
+        background_tasks: BackgroundTasks,
+        table_name: str = Query(..., title="Input table name"),
+        data_field: List = Query(..., title="Fields to get from data"),
+    ) -> None:
+        background_tasks.add_task(
+            update_data,
             ds=ds,
             catalog=catalog,
             steps=steps,
