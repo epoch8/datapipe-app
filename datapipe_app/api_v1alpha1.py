@@ -296,23 +296,31 @@ def DatpipeAPIv1(
         data_field: List = Query(..., title="Fields to get from data"),
         background: bool = Query(False, title="Run as Background Task (default = False)")
     ) -> None:
-        req = UpdateDataRequest(
-            table_name=table_name,
-            upsert=[
-                {
-                    **{
-                        k: v
-                        for k, v in request["task"]["data"].items()
-                        if k in data_field
-                    },
-                    "annotations": [request["annotation"]],
-                }
-            ],
-        )
+
+        upsert = [
+            {
+                **{
+                    k: v
+                    for k, v in request["task"]["data"].items()
+                    if k in data_field
+                },
+                "annotations": [request["annotation"]],
+            }
+        ]
+
+        dt = catalog.get_datatable(ds, table_name)
+
+        cl = ChangeList()
+
+        if len(upsert) > 0:
+            idx = dt.store_chunk(pd.DataFrame.from_records(upsert))
+
+            cl.append(dt.name, idx)
+
         if background:
-            background_tasks.add_task(update_data, ds=ds, catalog=catalog, steps=steps, req=req)
+            background_tasks.add_task(run_steps_changelist, ds=ds, steps=steps, changelist=cl)
         else:
-            update_data(ds=ds, catalog=catalog, steps=steps, req=req)
+            run_steps_changelist(ds=ds, steps=steps, changelist=cl)
 
     @app.get("/get-file")
     def get_file(filepath: str):
