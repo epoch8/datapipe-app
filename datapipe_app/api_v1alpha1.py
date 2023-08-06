@@ -11,10 +11,10 @@ from datapipe.compute import (
 )
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList, IndexDF, Labels
-from fastapi import FastAPI, Query, Response
+from fastapi import BackgroundTasks, FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.expression import select, text, and_, desc, asc
+from sqlalchemy.sql.expression import and_, asc, desc, select, text
 from sqlalchemy.sql.functions import count
 
 
@@ -69,9 +69,7 @@ class GetDataResponse(BaseModel):
 
 
 def filter_steps_by_labels(
-    steps: List[ComputeStep],
-    labels: Labels = [],
-    name_prefix: str = ""
+    steps: List[ComputeStep], labels: Labels = [], name_prefix: str = ""
 ) -> List[ComputeStep]:
     res = []
     for step in steps:
@@ -117,11 +115,11 @@ def get_data_get_pd(
     ds: DataStore,
     catalog: Catalog,
     table: str,
-    page: int = 0,
-    page_size: int = 20,
-    filters: Optional[IndexDF] = None,
-    order_by: Optional[List[str]] = None,
-    order: Literal["asc", "desc"] = "asc"
+    page: int,
+    page_size: int,
+    filters: Optional[IndexDF],
+    order_by: Optional[List[str]],
+    order: Literal["asc", "desc"],
 ) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
     dt = catalog.get_datatable(ds, table)
 
@@ -133,8 +131,11 @@ def get_data_get_pd(
     if filters is not None:
         sql = sql.where(
             and_(
-                *[meta_tbl.c[column].in_(filters[column]) for column in filters.columns],
-                meta_tbl.c["delete_ts"].is_(None)
+                *[
+                    meta_tbl.c[column].in_(filters[column])
+                    for column in filters.columns
+                ],
+                meta_tbl.c["delete_ts"].is_(None),
             )
         )
     else:
@@ -176,11 +177,20 @@ def get_data_get(
     page_size: int = 20,
     filters: Optional[IndexDF] = None,
     order_by: Optional[List[str]] = None,
-    order: Optional[Literal["asc", "desc"]] = None
+    order: Optional[Literal["asc", "desc"]] = None,
 ) -> GetDataResponse:
+    if order is None:
+        order = "asc"
+
     total_count, meta_df, data_df = get_data_get_pd(
-        ds, catalog, table, page, page_size, filters,
-        order_by, order
+        ds=ds,
+        catalog=catalog,
+        table=table,
+        page=page,
+        page_size=page_size,
+        filters=filters,
+        order_by=order_by,
+        order=order,
     )
     return GetDataResponse(
         page=page,
@@ -327,7 +337,9 @@ def DatpipeAPIv1(
             total=len(existing_idx),
             data=dt.get_data(
                 existing_idx.iloc[
-                    req.page * req.page_size : (req.page + 1) * req.page_size
+                    req.page
+                    * req.page_size : (req.page + 1)
+                    * req.page_size  # noqa: E203
                 ]
             ).to_dict(orient="records"),
         )
@@ -353,27 +365,35 @@ def DatpipeAPIv1(
     @app.post("/labelstudio-webhook")
     def labelstudio_webhook(
         request: Dict,
+        background_tasks: BackgroundTasks,
         table_name: str = Query(..., title="Input table name"),
         data_field: List = Query(..., title="Fields to get from data"),
+        background: bool = Query(
+            False, title="Run as Background Task (default = False)"
+        ),
     ) -> None:
-        update_data(
-            ds=ds,
-            catalog=catalog,
-            steps=steps,
-            req=UpdateDataRequest(
-                table_name=table_name,
-                upsert=[
-                    {
-                        **{
-                            k: v
-                            for k, v in request["task"]["data"].items()
-                            if k in data_field
-                        },
-                        "annotations": [request["annotation"]],
-                    }
-                ],
-            ),
-        )
+        upsert = [
+            {
+                **{k: v for k, v in request["task"]["data"].items() if k in data_field},
+                "annotations": [request["annotation"]],
+            }
+        ]
+
+        dt = catalog.get_datatable(ds, table_name)
+
+        cl = ChangeList()
+
+        if len(upsert) > 0:
+            idx = dt.store_chunk(pd.DataFrame.from_records(upsert))
+
+            cl.append(dt.name, idx)
+
+        if background:
+            background_tasks.add_task(
+                run_steps_changelist, ds=ds, steps=steps, changelist=cl
+            )
+        else:
+            run_steps_changelist(ds=ds, steps=steps, changelist=cl)
 
     @app.get("/get-file")
     def get_file(filepath: str):

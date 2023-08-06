@@ -7,3 +7,7 @@ build-frontend:
 
 build: build-frontend
 	poetry build
+
+lint:
+	flake8 datapipe_app
+    mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages

@@ -16,11 +16,11 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from app import dbconn
+from app import app
 
-target_metadata = [dbconn.sqla_metadata]
+target_metadata = [app.ds.meta_dbconn.sqla_metadata]
 
-config.set_main_option("sqlalchemy.url", dbconn.connstr)
+config.set_main_option("sqlalchemy.url", app.ds.meta_dbconn.connstr)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
