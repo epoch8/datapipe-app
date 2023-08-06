@@ -1,0 +1,34 @@
+POST http://localhost:8000/api/v1alpha1/update-data
+
+{
+    "table_name": "events",
+    "upsert": [
+        {
+            "user_id": 1,
+            "event_id": 1,
+            "event": {
+                "event_type": "click",
+                "offer_id": "o1",
+                "lang": "en"
+            }
+        },
+        {
+            "user_id": 1,
+            "event_id": 2,
+            "event": {
+                "event_type": "click",
+                "offer_id": "o2",
+                "lang": "en"
+            }
+        },
+        {
+            "user_id": 2,
+            "event_id": 1,
+            "event": {
+                "event_type": "click",
+                "offer_id": "o1",
+                "lang": "fr"
+            }
+        }
+    ]
+}

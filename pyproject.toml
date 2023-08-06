@@ -21,7 +21,7 @@ uvicorn = {extras = ["standard"], version = ">= 0.17.0"}
 click = ">=7.1.2"
 rich = "^13.3.2"
 
-datapipe-core = {version=">=0.12.0-alpha.1", allow-prereleases = true}
+datapipe-core = {version=">=0.13.0-alpha.1,<0.14", allow-prereleases = true}
 # datapipe-core = {version=">=0.12.0, <0.13", allow-prereleases = true}
 # datapipe-core = {path="../datapipe"}
 
