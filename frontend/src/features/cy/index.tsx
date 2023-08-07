@@ -35,6 +35,9 @@ function Cy() {
       const data = await response.json();
 
       const {nodes, edges} = reprocess_data(data);
+
+      console.log(nodes, edges);
+
       const elements: Cytoscape.ElementDefinition[] =
         Array.from(nodes.entries())
           .map(([nodeId, options]) => ({

@@ -9,6 +9,7 @@ from datapipe.compute import (
     run_steps,
     run_steps_changelist,
 )
+from datapipe.step.batch_transform import BaseBatchTransformStep
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import BackgroundTasks, FastAPI, Query, Response
@@ -24,6 +25,10 @@ class PipelineStepResponse(BaseModel):
     name: str
     inputs: List[str]
     outputs: List[str]
+
+    step_class: str
+
+    indexes: Optional[List[str]] = None
 
 
 class TableResponse(BaseModel):
@@ -270,12 +275,19 @@ def DatpipeAPIv1(
             outputs_join = ",".join(outputs)
             id_ = f"{step.name}({inputs_join})->({outputs_join})"
 
+            if isinstance(step, BaseBatchTransformStep):
+                transform_keys = step.transform_keys
+            else:
+                transform_keys = None
+
             return PipelineStepResponse(
                 id=id_,
                 type="transform",
                 name=step.get_name(),
                 inputs=inputs,
                 outputs=outputs,
+                indexes=transform_keys,
+                step_class=step.__class__.__name__,
             )
 
         return GraphResponse(

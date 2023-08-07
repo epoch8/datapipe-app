@@ -32,7 +32,8 @@ function reprocess_data(data: GraphData) {
       const nodeName = pipe.id;
       if (pipe.type !== 'meta') {
         nodes.set(nodeName, {
-          ...omit(pipe, ['inputs', 'outputs'])
+          store_class: pipe.step_class,
+          ...omit(pipe, ['inputs', 'outputs', 'step_class'])
         });
 
         if (grouped) {

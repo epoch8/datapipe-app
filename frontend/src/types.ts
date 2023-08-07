@@ -23,6 +23,8 @@ interface TransformNode extends BaseNode {
   type: 'transform';
   inputs: string[];
   outputs: string[];
+  step_class: string;
+  indexes: string[];
 }
 
 interface MetaNode extends BaseNode {
