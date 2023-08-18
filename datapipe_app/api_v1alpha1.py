@@ -44,6 +44,7 @@ class UpdateDataRequest(BaseModel):
     table_name: str
     upsert: Optional[List[Dict]] = None
     enable_changelist: bool = True
+    background: bool = False
     # delete: List[Dict] = None
 
 
@@ -71,14 +72,18 @@ def update_data(
     ds: DataStore,
     catalog: Catalog,
     steps: List[ComputeStep],
-    req: UpdateDataRequest,
+    background_tasks: BackgroundTasks,
+    table_name: str,
+    upsert: Optional[List[Dict]],
+    background: bool,
+    enable_changelist: bool = True
 ) -> UpdateDataResponse:
-    dt = catalog.get_datatable(ds, req.table_name)
+    dt = catalog.get_datatable(ds, table_name)
 
     cl = ChangeList()
 
-    if req.upsert is not None and len(req.upsert) > 0:
-        idx = dt.store_chunk(pd.DataFrame.from_records(req.upsert))
+    if upsert is not None and len(upsert) > 0:
+        idx = dt.store_chunk(pd.DataFrame.from_records(upsert))
 
         cl.append(dt.name, idx)
 
@@ -88,8 +93,11 @@ def update_data(
     #     )
 
     #     cl.append(dt.name, idx)
-    if req.enable_changelist:
-        run_steps_changelist(ds, steps, cl)
+    if enable_changelist:
+        if background:
+            background_tasks.add_task(run_steps_changelist, ds=ds, steps=steps, changelist=cl)
+        else:
+            run_steps_changelist(ds=ds, steps=steps, changelist=cl)
 
     return UpdateDataResponse(result="ok")
 
@@ -215,8 +223,17 @@ def DatpipeAPIv1(
         )
 
     @app.post("/update-data", response_model=UpdateDataResponse)
-    def update_data_api(req: UpdateDataRequest) -> UpdateDataResponse:
-        return update_data(ds, catalog, steps, req)
+    def update_data_api(req: UpdateDataRequest, background_tasks: BackgroundTasks) -> UpdateDataResponse:
+        return update_data(
+            ds=ds,
+            catalog=catalog,
+            steps=steps,
+            background_tasks=background_tasks,
+            table_name=req.table_name,
+            upsert=req.upsert,
+            background=req.background,
+            enable_changelist=req.enable_changelist,
+        )
 
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
     @app.get("/get-data", response_model=GetDataResponse)
@@ -295,7 +312,7 @@ def DatpipeAPIv1(
         table_name: str = Query(..., title="Input table name"),
         data_field: List = Query(..., title="Fields to get from data"),
         background: bool = Query(False, title="Run as Background Task (default = False)")
-    ) -> None:
+    ) -> UpdateDataResponse:
 
         upsert = [
             {
@@ -308,19 +325,15 @@ def DatpipeAPIv1(
             }
         ]
 
-        dt = catalog.get_datatable(ds, table_name)
-
-        cl = ChangeList()
-
-        if len(upsert) > 0:
-            idx = dt.store_chunk(pd.DataFrame.from_records(upsert))
-
-            cl.append(dt.name, idx)
-
-        if background:
-            background_tasks.add_task(run_steps_changelist, ds=ds, steps=steps, changelist=cl)
-        else:
-            run_steps_changelist(ds=ds, steps=steps, changelist=cl)
+        return update_data(
+            ds=ds,
+            catalog=catalog,
+            steps=steps,
+            background_tasks=background_tasks,
+            table_name=table_name,
+            upsert=upsert,
+            background=background,
+        )
 
     @app.get("/get-file")
     def get_file(filepath: str):
