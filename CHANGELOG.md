@@ -1,3 +1,10 @@
+# ???
+* Added `background` option for labelstudio_webhook for background tasks
+* Added `filters`, `order_by` and `order` in `GET` data.
+* Added `labels` to `UPDATE` data request
+* Fix but with incorrect counter total_count when grabbing `GET` data from api
+
+
 # 0.4.0
 
 ## Major changes
