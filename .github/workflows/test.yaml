@@ -47,4 +47,42 @@ jobs:
       - name: Test with pytest
         run: |
           poetry run pytest
-  
+
+  test-examples:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          # - "3.8"
+          # - "3.9"
+          - "3.10"
+        # example:
+        #   - datatable_batch_transform
+        #   - image_resize
+        #   - many_to_zero
+        #   - model_inference
+        #   - one_to_many_pipeline
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      
+      - name: Install poetry
+        run: |
+          pip install poetry==1.5.0
+
+      - name: Install dependencies
+        run: |
+          poetry install --all-extras
+
+      # cd examples/${{ matrix.example }}
+      - name: Test example
+        run: |
+          cd example
+          poetry run datapipe db create-all
+          poetry run datapipe run
