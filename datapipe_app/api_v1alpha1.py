@@ -40,17 +40,6 @@ class GraphResponse(BaseModel):
     pipeline: List[PipelineStepResponse]
 
 
-class UpdateDataRequest(BaseModel):
-    table_name: str
-    upsert: Optional[List[Dict]] = None
-    enable_changelist: bool = True
-    # delete: List[Dict] = None
-
-
-class UpdateDataResponse(BaseModel):
-    result: str
-
-
 class GetDataRequest(BaseModel):
     table: str
     filters: Dict[str, Any] = {}
@@ -65,33 +54,6 @@ class GetDataResponse(BaseModel):
     page_size: int
     total: int
     data: List[Dict]
-
-
-def update_data(
-    ds: DataStore,
-    catalog: Catalog,
-    steps: List[ComputeStep],
-    req: UpdateDataRequest,
-) -> UpdateDataResponse:
-    dt = catalog.get_datatable(ds, req.table_name)
-
-    cl = ChangeList()
-
-    if req.upsert is not None and len(req.upsert) > 0:
-        idx = dt.store_chunk(pd.DataFrame.from_records(req.upsert))
-
-        cl.append(dt.name, idx)
-
-    # if req.delete is not None and len(req.delete) > 0:
-    #     idx = dt.delete_by_idx(
-    #         pd.DataFrame.from_records(req.delete)
-    #     )
-
-    #     cl.append(dt.name, idx)
-    if req.enable_changelist:
-        run_steps_changelist(ds, steps, cl)
-
-    return UpdateDataResponse(result="ok")
 
 
 def get_data_get(
@@ -214,10 +176,6 @@ def DatpipeAPIv1(
             pipeline=[pipeline_step_response(step) for step in steps],
         )
 
-    @app.post("/update-data", response_model=UpdateDataResponse)
-    def update_data_api(req: UpdateDataRequest) -> UpdateDataResponse:
-        return update_data(ds, catalog, steps, req)
-
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
     @app.get("/get-data", response_model=GetDataResponse)
     def get_data_get_api(
@@ -281,46 +239,6 @@ def DatpipeAPIv1(
         res = dt.get_data(idx=pd.DataFrame.from_records(req.idx))
 
         return res.to_dict(orient="records")
-
-    @app.post("/run")
-    def run():
-        run_steps(ds=ds, steps=steps)
-
-    # TODO refactor out to component based extension system
-    # TODO automatic setup of webhook on project creation
-    @app.post("/labelstudio-webhook")
-    def labelstudio_webhook(
-        request: Dict,
-        background_tasks: BackgroundTasks,
-        table_name: str = Query(..., title="Input table name"),
-        data_field: List = Query(..., title="Fields to get from data"),
-        background: bool = Query(False, title="Run as Background Task (default = False)")
-    ) -> None:
-
-        upsert = [
-            {
-                **{
-                    k: v
-                    for k, v in request["task"]["data"].items()
-                    if k in data_field
-                },
-                "annotations": [request["annotation"]],
-            }
-        ]
-
-        dt = catalog.get_datatable(ds, table_name)
-
-        cl = ChangeList()
-
-        if len(upsert) > 0:
-            idx = dt.store_chunk(pd.DataFrame.from_records(upsert))
-
-            cl.append(dt.name, idx)
-
-        if background:
-            background_tasks.add_task(run_steps_changelist, ds=ds, steps=steps, changelist=cl)
-        else:
-            run_steps_changelist(ds=ds, steps=steps, changelist=cl)
 
     @app.get("/get-file")
     def get_file(filepath: str):
