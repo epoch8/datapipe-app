@@ -1,10 +1,3 @@
-# ???
-* Added `background` option for labelstudio_webhook for background tasks
-* Added `filters`, `order_by` and `order` in `GET` data.
-* Added `labels` to `UPDATE` data request
-* Fix but with incorrect counter total_count when grabbing `GET` data from api
-
-
 # 0.4.0
 
 ## Major changes
@@ -16,6 +9,9 @@
   specific step
 * Add `DatapipeAPI` wrapper for `DatapipeApp`
 * Add `background` argument to `/update-data` and `/labelstudio-webhook`
+* Add `filters`, `order_by` and `order` in `GET` data.
+* Add `labels` to `UPDATE` data request
+* Fix bug with incorrect counter `total_count` when grabbing `GET` data from api
 
 # 0.3.2
 
