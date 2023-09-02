@@ -23,18 +23,11 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Setup poetry
         run: |
           pip install poetry==1.5.0
-
-      - name: Cache Python dependencies
-        uses: actions/cache@v3
-        with:
-          path: /home/runner/.cache/pypoetry/virtualenvs
-          key: ${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -50,3 +43,8 @@ jobs:
       - name: Lint with mypy
         run: |
           poetry run mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages
+
+      - name: Test with pytest
+        run: |
+          poetry run pytest
+  
