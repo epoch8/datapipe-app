@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 from datapipe.compute import Catalog, DataStore, Pipeline, Table
-from datapipe.core_steps import BatchTransform
+from datapipe.step.batch_transform import BatchTransform
 from datapipe.store.database import DBConn, TableStoreDB
 from sqlalchemy import JSON, Boolean, Column, Integer, String
 
