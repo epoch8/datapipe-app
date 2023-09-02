@@ -33,7 +33,7 @@ def test_update_data(app, background):
     )
     assert res.status_code == 200
 
-    # time.sleep(0.5)
+    time.sleep(0.5)
 
     res = client.post(
         "/api/v1alpha1/get-data",
