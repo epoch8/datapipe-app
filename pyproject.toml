@@ -42,8 +42,10 @@ jaeger = ["opentelemetry-exporter-jaeger"]
 datapipe_app = "datapipe_app.cli:register_commands"
 
 [tool.poetry.group.dev.dependencies]
+datapipe-core = {version="*", extras=["sqlite"]}
+
 mypy = "*"
-sqlalchemy = {extras = ["mypy"], version = "*"}
+sqlalchemy = {version = "*", extras = ["mypy"]}
 alembic = "*"
 black = "*"
 flake8 = "*"

@@ -9,7 +9,7 @@ from sqlalchemy import JSON, Boolean, Column, Integer, String
 
 from datapipe_app import DatapipeAPI
 
-DB_CONN_URI = os.environ.get("DB_CONN_URI", "sqlite:///store.sqlite")
+DB_CONN_URI = os.environ.get("DB_CONN_URI", "sqlite+pysqlite3:///store.sqlite")
 
 # dbconn = DBConn("sqlite:///store.sqlite")
 # dbconn = DBConn("sqlite:///:memory:")
