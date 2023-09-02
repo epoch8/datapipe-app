@@ -8,6 +8,10 @@
 * Add `step status` command that shows status (number of idx's to process) for a
   specific step
 * Add `DatapipeAPI` wrapper for `DatapipeApp`
+* Add `background` argument to `/update-data` and `/labelstudio-webhook`
+* Add `filters`, `order_by` and `order` in `GET` data.
+* Add `labels` to `UPDATE` data request
+* Fix bug with incorrect counter `total_count` when grabbing `GET` data from api
 
 # 0.3.2
 

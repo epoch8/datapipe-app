@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import pandas as pd
 from datapipe.compute import (
@@ -10,11 +10,11 @@ from datapipe.compute import (
     run_steps_changelist,
 )
 from datapipe.store.database import TableStoreDB
-from datapipe.types import ChangeList
+from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import BackgroundTasks, FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from sqlalchemy.sql.expression import select, text
+from sqlalchemy.sql.expression import and_, asc, desc, select, text
 from sqlalchemy.sql.functions import count
 
 
@@ -44,6 +44,8 @@ class UpdateDataRequest(BaseModel):
     table_name: str
     upsert: Optional[List[Dict]] = None
     enable_changelist: bool = True
+    background: bool = False
+    labels: Labels = []
     # delete: List[Dict] = None
 
 
@@ -67,18 +69,37 @@ class GetDataResponse(BaseModel):
     data: List[Dict]
 
 
+def filter_steps_by_labels(
+    steps: List[ComputeStep], labels: Labels = [], name_prefix: str = ""
+) -> List[ComputeStep]:
+    res = []
+    for step in steps:
+        for k, v in labels:
+            if (k, v) not in step.labels:
+                break
+        else:
+            if step.name.startswith(name_prefix):
+                res.append(step)
+
+    return res
+
+
 def update_data(
     ds: DataStore,
     catalog: Catalog,
     steps: List[ComputeStep],
-    req: UpdateDataRequest,
+    background_tasks: BackgroundTasks,
+    table_name: str,
+    upsert: Optional[List[Dict]],
+    background: bool,
+    enable_changelist: bool = True,
 ) -> UpdateDataResponse:
-    dt = catalog.get_datatable(ds, req.table_name)
+    dt = catalog.get_datatable(ds, table_name)
 
     cl = ChangeList()
 
-    if req.upsert is not None and len(req.upsert) > 0:
-        idx = dt.store_chunk(pd.DataFrame.from_records(req.upsert))
+    if upsert is not None and len(upsert) > 0:
+        idx = dt.store_chunk(pd.DataFrame.from_records(upsert))
 
         cl.append(dt.name, idx)
 
@@ -88,10 +109,73 @@ def update_data(
     #     )
 
     #     cl.append(dt.name, idx)
-    if req.enable_changelist:
-        run_steps_changelist(ds, steps, cl)
+    if enable_changelist:
+        if background:
+            background_tasks.add_task(
+                run_steps_changelist, ds=ds, steps=steps, changelist=cl
+            )
+        else:
+            run_steps_changelist(ds=ds, steps=steps, changelist=cl)
 
     return UpdateDataResponse(result="ok")
+
+
+def get_data_get_pd(
+    ds: DataStore,
+    catalog: Catalog,
+    table: str,
+    page: int,
+    page_size: int,
+    filters: Optional[IndexDF],
+    order_by: Optional[List[str]],
+    order: Literal["asc", "desc"],
+) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
+    dt = catalog.get_datatable(ds, table)
+
+    meta_schema = dt.meta_table.sql_schema
+    meta_tbl = dt.meta_table.sql_table
+
+    sql = select(*meta_schema)
+    sql = sql.where(meta_tbl.c.delete_ts.is_(None))
+    if filters is not None:
+        sql = sql.where(
+            and_(
+                *[
+                    meta_tbl.c[column].in_(filters[column])
+                    for column in filters.columns
+                ],
+                meta_tbl.c["delete_ts"].is_(None),
+            )
+        )
+    else:
+        sql = sql.where(meta_tbl.c["delete_ts"].is_(None))
+    sql_count = select(count()).select_from(sql)
+    total_count = ds.meta_dbconn.con.execute(sql_count).scalar()
+    if page * page_size > total_count:
+        data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
+    else:
+        if order_by is not None:
+            if order == "asc":
+                sql = sql.order_by(
+                    asc(*[meta_tbl.c[column] for column in order_by]),
+                )
+            elif order == "desc":
+                sql = sql.order_by(
+                    desc(*[meta_tbl.c[column] for column in order_by]),
+                )
+        sql = sql.offset(page * page_size).limit(page_size)
+        meta_df = pd.read_sql_query(
+            sql,
+            con=ds.meta_dbconn.con,
+        )
+
+        if not meta_df.empty:
+            data_df = dt.get_data(meta_df)
+            data_df = meta_df.merge(data_df)[data_df.columns]  # save order
+        else:
+            data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
+
+    return total_count, meta_df, data_df
 
 
 def get_data_get(
@@ -100,30 +184,27 @@ def get_data_get(
     table: str,
     page: int = 0,
     page_size: int = 20,
+    filters: Optional[IndexDF] = None,
+    order_by: Optional[List[str]] = None,
+    order: Optional[Literal["asc", "desc"]] = None,
 ) -> GetDataResponse:
-    dt = catalog.get_datatable(ds, table)
+    if order is None:
+        order = "asc"
 
-    meta_schema = dt.meta_table.sql_schema
-    meta_tbl = dt.meta_table.sql_table
-
-    sql = select(*meta_schema)
-    sql = sql.where(meta_tbl.c.delete_ts.is_(None))
-    sql = sql.offset(page * page_size).limit(page_size)
-
-    meta_df = pd.read_sql_query(
-        sql,
-        con=ds.meta_dbconn.con,
+    total_count, meta_df, data_df = get_data_get_pd(
+        ds=ds,
+        catalog=catalog,
+        table=table,
+        page=page,
+        page_size=page_size,
+        filters=filters,
+        order_by=order_by,
+        order=order,
     )
-
-    if not meta_df.empty:
-        data_df = dt.get_data(meta_df)
-    else:
-        data_df = pd.DataFrame()
-
     return GetDataResponse(
         page=page,
         page_size=page_size,
-        total=len(meta_df),
+        total=total_count,
         data=data_df.fillna("").to_dict(orient="records"),
     )
 
@@ -215,8 +296,20 @@ def DatpipeAPIv1(
         )
 
     @app.post("/update-data", response_model=UpdateDataResponse)
-    def update_data_api(req: UpdateDataRequest) -> UpdateDataResponse:
-        return update_data(ds, catalog, steps, req)
+    def update_data_api(
+        req: UpdateDataRequest,
+        background_tasks: BackgroundTasks,
+    ) -> UpdateDataResponse:
+        return update_data(
+            ds=ds,
+            catalog=catalog,
+            steps=filter_steps_by_labels(steps, labels=req.labels),
+            background_tasks=background_tasks,
+            table_name=req.table_name,
+            upsert=req.upsert,
+            background=req.background,
+            enable_changelist=req.enable_changelist,
+        )
 
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
     @app.get("/get-data", response_model=GetDataResponse)
@@ -265,7 +358,7 @@ def DatpipeAPIv1(
             total=len(existing_idx),
             data=dt.get_data(
                 existing_idx.iloc[
-                    req.page * req.page_size : (req.page + 1) * req.page_size  # noqa: E203
+                    req.page * req.page_size : (req.page + 1) * req.page_size
                 ]
             ).to_dict(orient="records"),
         )
@@ -294,33 +387,26 @@ def DatpipeAPIv1(
         background_tasks: BackgroundTasks,
         table_name: str = Query(..., title="Input table name"),
         data_field: List = Query(..., title="Fields to get from data"),
-        background: bool = Query(False, title="Run as Background Task (default = False)")
-    ) -> None:
-
+        background: bool = Query(
+            False, title="Run as Background Task (default = False)"
+        ),
+    ) -> UpdateDataResponse:
         upsert = [
             {
-                **{
-                    k: v
-                    for k, v in request["task"]["data"].items()
-                    if k in data_field
-                },
+                **{k: v for k, v in request["task"]["data"].items() if k in data_field},
                 "annotations": [request["annotation"]],
             }
         ]
 
-        dt = catalog.get_datatable(ds, table_name)
-
-        cl = ChangeList()
-
-        if len(upsert) > 0:
-            idx = dt.store_chunk(pd.DataFrame.from_records(upsert))
-
-            cl.append(dt.name, idx)
-
-        if background:
-            background_tasks.add_task(run_steps_changelist, ds=ds, steps=steps, changelist=cl)
-        else:
-            run_steps_changelist(ds=ds, steps=steps, changelist=cl)
+        return update_data(
+            ds=ds,
+            catalog=catalog,
+            steps=steps,
+            background_tasks=background_tasks,
+            table_name=table_name,
+            upsert=upsert,
+            background=background,
+        )
 
     @app.get("/get-file")
     def get_file(filepath: str):
