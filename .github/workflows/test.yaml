@@ -7,7 +7,7 @@ on:
       - "**/*.md"
 
 jobs:
-  lint_and_test:
+  lint-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
