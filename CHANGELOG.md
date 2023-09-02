@@ -8,6 +8,7 @@
 * Add `step status` command that shows status (number of idx's to process) for a
   specific step
 * Add `DatapipeAPI` wrapper for `DatapipeApp`
+* Add `background` argument to `/update-data` and `/labelstudio-webhook`
 
 # 0.3.2
 
