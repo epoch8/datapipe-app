@@ -247,12 +247,13 @@ def get_data_post(
     else:
         data_df = pd.DataFrame()
 
-    return GetDataResponse(
-        page=req.page,
-        page_size=req.page_size,
-        total=dt.table_store.dbconn.con.execute(sql_count).fetchone()[0],
-        data=data_df.fillna("").to_dict(orient="records"),
-    )
+    with dt.table_store.dbconn.con.begin() as conn:
+        return GetDataResponse(
+            page=req.page,
+            page_size=req.page_size,
+            total=conn.execute(sql_count).fetchone()[0],
+            data=data_df.fillna("").to_dict(orient="records"),
+        )
 
 
 def DatpipeAPIv1(
