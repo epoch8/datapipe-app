@@ -11,10 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version:
-          # - "3.8"
-          # - "3.9"
-          - "3.10"
+        include:
+          - python-version: "3.10"
+            pip-extra: "sqlalchemy <2"
+          - python-version: "3.10"
+            pip-extra: "sqlalchemy >2"
 
     steps:
       - uses: actions/checkout@v3
@@ -25,28 +26,24 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Setup poetry
-        run: |
-          pip install poetry==1.5.0
-
       - name: Install dependencies
         run: |
-          poetry install --all-extras
+          pip install "${{ matrix.pip-extra }}" "." "pytest<8" "mypy" "flake8"
 
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Lint with mypy
         run: |
-          poetry run mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages
+          mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages
 
       - name: Test with pytest
         run: |
-          poetry run pytest
+          pytest
 
   test-examples:
     runs-on: ubuntu-latest
@@ -56,12 +53,6 @@ jobs:
           # - "3.8"
           # - "3.9"
           - "3.10"
-        # example:
-        #   - datatable_batch_transform
-        #   - image_resize
-        #   - many_to_zero
-        #   - model_inference
-        #   - one_to_many_pipeline
 
     steps:
       - uses: actions/checkout@v3
@@ -80,7 +71,6 @@ jobs:
         run: |
           poetry install --all-extras
 
-      # cd examples/${{ matrix.example }}
       - name: Test example
         run: |
           cd example
