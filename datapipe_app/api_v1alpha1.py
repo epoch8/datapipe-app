@@ -342,11 +342,8 @@ def DatpipeAPIv1(
 
         if req.focus is not None:
             idx = pd.DataFrame.from_records(
-                [
-                    {k: v for k, v in item.items() if k in dt.primary_keys}
-                    for item in req.focus.items_idx
-                ]
-            )
+                [{k: v for item in req.focus.items_idx for k, v in item.items() if k in dt.primary_keys}]
+            ).dropna()
         else:
             idx = None
 
