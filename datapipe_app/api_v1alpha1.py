@@ -135,7 +135,7 @@ def get_data_get_pd(
     meta_schema = dt.meta_table.sql_schema
     meta_tbl = dt.meta_table.sql_table
 
-    sql = select(*meta_schema)
+    sql: Any = select(*meta_schema)
     sql = sql.where(meta_tbl.c.delete_ts.is_(None))
     if filters is not None:
         sql = sql.where(
@@ -342,7 +342,14 @@ def DatpipeAPIv1(
 
         if req.focus is not None:
             idx = pd.DataFrame.from_records(
-                [{k: v for item in req.focus.items_idx for k, v in item.items() if k in dt.primary_keys}]
+                [
+                    {
+                        k: v
+                        for item in req.focus.items_idx
+                        for k, v in item.items()
+                        if k in dt.primary_keys
+                    }
+                ]
             ).dropna()
         else:
             idx = None
