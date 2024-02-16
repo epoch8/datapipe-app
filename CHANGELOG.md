@@ -1,3 +1,7 @@
+# 0.4.2
+
+* Fix bug when focus did not work in some cases
+
 # 0.4.1
 
 * Added Python 3.11 support. 
