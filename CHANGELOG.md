@@ -1,3 +1,7 @@
+# 0.4.3
+
+* Fix bug with `total_count` connection in `get_data_get_pd`.
+
 # 0.4.2
 
 * Fix bug when focus did not work in some cases
