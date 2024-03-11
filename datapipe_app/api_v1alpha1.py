@@ -150,7 +150,8 @@ def get_data_get_pd(
     else:
         sql = sql.where(meta_tbl.c["delete_ts"].is_(None))
     sql_count = select(count()).select_from(sql)
-    total_count = ds.meta_dbconn.con.execute(sql_count).scalar()
+    with ds.meta_dbconn.con.begin() as conn:
+        total_count = conn.execute(sql_count).scalar()
     if page * page_size > total_count:
         meta_df = pd.DataFrame(columns=[x.name for x in meta_schema])
         data_df = dt.get_data(meta_df)

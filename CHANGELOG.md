@@ -1,3 +1,7 @@
+# 0.4.4
+
+* Fix bug with `total_count` connection in `get_data_get_pd`.
+
 # 0.4.3
 
 * Fix bug in get_data when page*page_size > total_count
