@@ -1,3 +1,7 @@
+# 0.4.3
+
+* Fix bug in get_data when page*page_size > total_count
+
 # 0.4.2
 
 * Fix bug when focus did not work in some cases

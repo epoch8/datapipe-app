@@ -152,7 +152,8 @@ def get_data_get_pd(
     sql_count = select(count()).select_from(sql)
     total_count = ds.meta_dbconn.con.execute(sql_count).scalar()
     if page * page_size > total_count:
-        data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
+        meta_df = pd.DataFrame(columns=[x.name for x in meta_schema])
+        data_df = dt.get_data(meta_df)
     else:
         if order_by is not None:
             if order == "asc":
