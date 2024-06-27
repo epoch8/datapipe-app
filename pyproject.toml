@@ -24,8 +24,9 @@ click = ">=7.1.2"
 rich = "^13.3.2"
 
 # datapipe-core = ">=0.13.2"
-datapipe-core = {version=">=0.13.12-dev+pipeline-monitoring.1", allow-prereleases = true}
+# datapipe-core = {version=">=0.13.12-dev+pipeline-monitoring.1", allow-prereleases = true}
 # datapipe-core = {path="../datapipe", develop=true}
+datapipe-core = {git = "https://github.com/epoch8/datapipe.git", branch = "pipeline-monitoring", allow-prereleases = true}
 
 starlette-exporter = "*"
 
