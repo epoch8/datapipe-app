@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datapipe-app"
-version = "0.4.4"
+version = "0.4.4-dev+pipeline-monitoring.1"
 description = ""
 authors = [
     "Andrey Tatarinov <a@tatarinov.co>",
@@ -23,11 +23,11 @@ uvicorn = {extras = ["standard"], version = ">= 0.17.0"}
 click = ">=7.1.2"
 rich = "^13.3.2"
 
-datapipe-core = ">=0.13.2"
+# datapipe-core = ">=0.13.2"
 # datapipe-core = {version=">=0.12.0, <0.13", allow-prereleases = true}
-# datapipe-core = {path="../datapipe"}
+datapipe-core = {path="../datapipe", develop=true}
 
-prometheus-client = ">= 0.8.0, < 1.0.0"
+starlette-exporter = "*"
 
 opentelemetry-instrumentation-fastapi = ">=0.35b0"
 
