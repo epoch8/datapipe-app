@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datapipe-app"
-version = "0.4.4-dev+pipeline-monitoring.1"
+version = "0.4.5-dev.1"
 description = ""
 authors = [
     "Andrey Tatarinov <a@tatarinov.co>",
@@ -24,9 +24,9 @@ click = ">=7.1.2"
 rich = "^13.3.2"
 
 # datapipe-core = ">=0.13.2"
-# datapipe-core = {version=">=0.13.12-dev+pipeline-monitoring.1", allow-prereleases = true}
+datapipe-core = {version=">=0.13.13-dev.1", allow-prereleases = true}
 # datapipe-core = {path="../datapipe", develop=true}
-datapipe-core = {git = "https://github.com/epoch8/datapipe.git", branch = "pipeline-monitoring", allow-prereleases = true}
+# datapipe-core = {git = "https://github.com/epoch8/datapipe.git", branch = "pipeline-monitoring", allow-prereleases = true}
 
 starlette-exporter = "*"
 
