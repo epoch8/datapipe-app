@@ -14,7 +14,7 @@ from datapipe_app import DatapipeAPI
 @pytest.fixture
 def app():
     with tempfile.TemporaryDirectory() as tmpdir:
-        dbconn = DBConn(f"sqlite:///{tmpdir}/store.sqlite")
+        dbconn = DBConn(f"sqlite+pysqlite3:///{tmpdir}/store.sqlite")
 
         catalog = Catalog(
             {
