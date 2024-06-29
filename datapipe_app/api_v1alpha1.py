@@ -9,6 +9,7 @@ from datapipe.compute import (
     run_steps,
     run_steps_changelist,
 )
+from datapipe.step.batch_transform import BaseBatchTransformStep
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import BackgroundTasks, FastAPI, Query, Response
@@ -19,11 +20,18 @@ from sqlalchemy.sql.functions import count
 
 
 class PipelineStepResponse(BaseModel):
-    id_: str = Field(alias="id")
-    type_: str = Field(alias="type")
     name: str
+
+    type_: str = Field(alias="type")
+    transform_type: str
+
+    indexes: List[str] | None = None
+
     inputs: List[str]
     outputs: List[str]
+
+    total_idx_count: int | None = None
+    changed_idx_count: int | None = None
 
 
 class TableResponse(BaseModel):
@@ -258,7 +266,7 @@ def get_data_post(
         )
 
 
-def DatpipeAPIv1(
+def make_app(
     ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]
 ) -> FastAPI:
     app = FastAPI()
@@ -275,20 +283,32 @@ def DatpipeAPIv1(
                 store_class=tbl.table_store.__class__.__name__,
             )
 
-        def pipeline_step_response(step):
+        def pipeline_step_response(step: ComputeStep):
             inputs = [i.name for i in step.input_dts]
             outputs = [i.name for i in step.output_dts]
-            inputs_join = ",".join(inputs)
-            outputs_join = ",".join(outputs)
-            id_ = f"{step.name}({inputs_join})->({outputs_join})"
 
-            return PipelineStepResponse(
-                id=id_,
-                type="transform",
-                name=step.get_name(),
-                inputs=inputs,
-                outputs=outputs,
-            )
+            if isinstance(step, BaseBatchTransformStep):
+                step_status = step.get_status(ds=ds)
+
+                return PipelineStepResponse(
+                    type="transform",
+                    transform_type=step.__class__.__name__,
+                    name=step.get_name(),
+                    indexes=step.transform_keys,
+                    inputs=inputs,
+                    outputs=outputs,
+                    total_idx_count=step_status.total_idx_count,
+                    changed_idx_count=step_status.changed_idx_count,
+                )
+
+            else:
+                return PipelineStepResponse(
+                    type="transform",
+                    transform_type=step.__class__.__name__,
+                    name=step.get_name(),
+                    inputs=inputs,
+                    outputs=outputs,
+                )
 
         return GraphResponse(
             catalog={

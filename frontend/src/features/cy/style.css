@@ -60,6 +60,17 @@
     font-size: 8px;
 }
 
+.transform-type {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%);
+    bottom: -5px;
+    background: #beddcd;
+    border-radius: 5px;
+    padding: 0 10px;
+    font-size: 8px;
+}
+
 .custom-menu-item {
     border: none !important;
     height: 32px !important;

@@ -1,3 +1,7 @@
+# WIP 0.4.5
+
+* Add total/changed counts to transform node in UI
+
 # 0.4.4
 
 * Fix bug with `total_count` connection in `get_data_get_pd`.

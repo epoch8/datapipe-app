@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 import datapipe_app.api_v1alpha1 as api_v1alpha1
+from datapipe_app.metrics import setup_prometheus_metrics
 
 
 class DatapipeAPI(FastAPI, DatapipeApp):
@@ -43,9 +44,15 @@ class DatapipeAPI(FastAPI, DatapipeApp):
 
         self.api = FastAPI()
 
+        setup_prometheus_metrics(
+            app=self,
+            app_name="datapipe",
+            datapipe_app=self,
+        )
+
         self.api.mount(
             "/v1alpha1",
-            api_v1alpha1.DatpipeAPIv1(self.ds, self.catalog, self.pipeline, self.steps),
+            api_v1alpha1.make_app(self.ds, self.catalog, self.pipeline, self.steps),
             name="v1alpha1",
         )
 

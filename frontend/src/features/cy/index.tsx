@@ -35,20 +35,16 @@ function Cy() {
       const data = await response.json();
 
       const {nodes, edges} = reprocess_data(data);
-      const elements: Cytoscape.ElementDefinition[] =
-        Array.from(nodes.entries())
-          .map(([nodeId, options]) => ({
-            selectable: options.type !== 'group',
-            data: {
-              id: nodeId,
-              label: options.name,
-              parent: options.parent,
-              type: options.type,
-              indexes: options.indexes,
-              size: options.size,
-              store_class: options.store_class
-            }
-          }));
+      const elements: Cytoscape.ElementDefinition[] = Array.from(
+        nodes.entries()
+      ).map(([nodeId, options]) => ({
+        selectable: options.type !== "group",
+        data: {
+          id: nodeId,
+          label: options.name,
+          ...options,
+        },
+      }));
 
       edges.forEach(edge => {
         elements.push({
@@ -132,20 +128,36 @@ function Cy() {
         halignBox: 'center',
         valignBox: 'center',
         tpl(data: Cytoscape.NodeDataDefinition) {
-          return `
-            <div class="node-core" style="width: ${
-            Math.max(
-              data.label.length * 10,
-              (data.indexes || []).join(', ').length * 6
-            )
-          }; height: 70px">
-                ${data.type === 'table' ? `<div class="icon icon-table"></div>` : ''}
-                <div class="name">${data.label}</div>
-                ${data.indexes ? `<div class="indexes">${data.indexes.join(', ')}</div>` : ''}
-                ${data.size ? `<div class="indexes">size: ${data.size}</div>` : ''}
-                ${data.store_class ? `<div class="store">${data.store_class}</div>` : ''}
-            </div>
-          `
+          if (data.type === 'table') {
+            return `
+              <div class="node-core" style="width: ${
+              Math.max(
+                data.name.length * 10,
+                (data.indexes || []).join(', ').length * 6
+              )
+            }; height: 70px">
+                  <div class="icon icon-table"></div>
+                  <div class="name">${data.name}</div>
+                  ${data.indexes ? `<div class="indexes">${data.indexes.join(', ')}</div>` : ''}
+                  ${data.size ? `<div class="indexes">size: ${data.size}</div>` : ''}
+                  ${data.store_class ? `<div class="store">${data.store_class}</div>` : ''}
+              </div>
+            `
+          } else {
+            return `
+              <div class="node-core" style="width: ${
+              Math.max(
+                data.name.length * 10,
+                (data.indexes || []).join(', ').length * 6
+              )
+            }; height: 70px">
+                  <div class="name">${data.name}</div>
+                  ${data.indexes ? `<div class="indexes">${data.indexes.join(', ')}</div>` : ''}
+                  ${data.total_idx_count | data.changed_idx_count ? `<div class="indexes">total/changed: ${data.total_idx_count}/${data.changed_idx_count}</div>` : ''}
+                  <div class="transform-type">${data.transform_type}</div>
+              </div>
+            `
+          }
         }
       },
     ])

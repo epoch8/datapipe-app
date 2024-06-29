@@ -15,7 +15,7 @@ interface GraphData {
 interface BaseNode {
   id: string;
   type: string;
-  name?: string;
+  name: string;
   func?: string;
 }
 
