@@ -1,5 +1,5 @@
 build-example:
-	docker build 
+	docker build -f example/Dockerfile .
 
 build-frontend:
 	docker run --rm -v `pwd`/frontend:/app -v `pwd`/datapipe_app/frontend:/app/build -w /app node:18.7.0-slim yarn
@@ -10,4 +10,4 @@ build: build-frontend
 
 lint:
 	flake8 datapipe_app
-    mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages
+	mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages

@@ -19,11 +19,14 @@ from sqlalchemy.sql.functions import count
 
 
 class PipelineStepResponse(BaseModel):
-    id_: str = Field(alias="id")
-    type_: str = Field(alias="type")
     name: str
+
+    type_: str = Field(alias="type")
+    transform_type: str
     inputs: List[str]
     outputs: List[str]
+    total_idx_count: str
+    changed_idx_count: str
 
 
 class TableResponse(BaseModel):
@@ -258,7 +261,7 @@ def get_data_post(
         )
 
 
-def DatpipeAPIv1(
+def make_app(
     ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]
 ) -> FastAPI:
     app = FastAPI()
@@ -275,19 +278,26 @@ def DatpipeAPIv1(
                 store_class=tbl.table_store.__class__.__name__,
             )
 
-        def pipeline_step_response(step):
+        def pipeline_step_response(step: ComputeStep):
             inputs = [i.name for i in step.input_dts]
             outputs = [i.name for i in step.output_dts]
-            inputs_join = ",".join(inputs)
-            outputs_join = ",".join(outputs)
-            id_ = f"{step.name}({inputs_join})->({outputs_join})"
+
+            try:
+                step_status = step.get_status(ds=ds)
+                total_idx_count = str(step_status.total_idx_count)
+                changed_idx_count = str(step_status.changed_idx_count)
+            except NotImplementedError:
+                total_idx_count = "N/A"
+                changed_idx_count = "N/A"
 
             return PipelineStepResponse(
-                id=id_,
                 type="transform",
+                transform_type=step.__class__.__name__,
                 name=step.get_name(),
                 inputs=inputs,
                 outputs=outputs,
+                total_idx_count=total_idx_count,
+                changed_idx_count=changed_idx_count,
             )
 
         return GraphResponse(
