@@ -153,7 +153,7 @@ function Cy() {
             }; height: 70px">
                   <div class="name">${data.name}</div>
                   ${data.indexes ? `<div class="indexes">${data.indexes.join(', ')}</div>` : ''}
-                  <div class="indexes">total/changed: ${data.total_idx_count}/${data.changed_idx_count}</div>
+                  ${data.total_idx_count | data.changed_idx_count ? `<div class="indexes">total/changed: ${data.total_idx_count}/${data.changed_idx_count}</div>` : ''}
                   <div class="transform-type">${data.transform_type}</div>
               </div>
             `

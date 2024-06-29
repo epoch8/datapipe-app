@@ -9,6 +9,7 @@ from datapipe.compute import (
     run_steps,
     run_steps_changelist,
 )
+from datapipe.step.batch_transform import BaseBatchTransformStep
 from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import BackgroundTasks, FastAPI, Query, Response
@@ -23,10 +24,14 @@ class PipelineStepResponse(BaseModel):
 
     type_: str = Field(alias="type")
     transform_type: str
+
+    indexes: List[str] | None = None
+
     inputs: List[str]
     outputs: List[str]
-    total_idx_count: str
-    changed_idx_count: str
+
+    total_idx_count: int | None = None
+    changed_idx_count: int | None = None
 
 
 class TableResponse(BaseModel):
@@ -282,23 +287,28 @@ def make_app(
             inputs = [i.name for i in step.input_dts]
             outputs = [i.name for i in step.output_dts]
 
-            try:
+            if isinstance(step, BaseBatchTransformStep):
                 step_status = step.get_status(ds=ds)
-                total_idx_count = str(step_status.total_idx_count)
-                changed_idx_count = str(step_status.changed_idx_count)
-            except NotImplementedError:
-                total_idx_count = "na"
-                changed_idx_count = "na"
 
-            return PipelineStepResponse(
-                type="transform",
-                transform_type=step.__class__.__name__,
-                name=step.get_name(),
-                inputs=inputs,
-                outputs=outputs,
-                total_idx_count=total_idx_count,
-                changed_idx_count=changed_idx_count,
-            )
+                return PipelineStepResponse(
+                    type="transform",
+                    transform_type=step.__class__.__name__,
+                    name=step.get_name(),
+                    indexes=step.transform_keys,
+                    inputs=inputs,
+                    outputs=outputs,
+                    total_idx_count=step_status.total_idx_count,
+                    changed_idx_count=step_status.changed_idx_count,
+                )
+
+            else:
+                return PipelineStepResponse(
+                    type="transform",
+                    transform_type=step.__class__.__name__,
+                    name=step.get_name(),
+                    inputs=inputs,
+                    outputs=outputs,
+                )
 
         return GraphResponse(
             catalog={
