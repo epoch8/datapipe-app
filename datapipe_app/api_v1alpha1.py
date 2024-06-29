@@ -287,8 +287,8 @@ def make_app(
                 total_idx_count = str(step_status.total_idx_count)
                 changed_idx_count = str(step_status.changed_idx_count)
             except NotImplementedError:
-                total_idx_count = "N/A"
-                changed_idx_count = "N/A"
+                total_idx_count = "na"
+                changed_idx_count = "na"
 
             return PipelineStepResponse(
                 type="transform",
