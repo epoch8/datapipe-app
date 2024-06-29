@@ -18,20 +18,7 @@ class PipelineStatusCollector(Collector):
         self.datapipe_app = datapipe_app
 
     def describe(self) -> Iterable[Metric]:
-        total_counts = GaugeMetricFamily(
-            "datapipe_step_total_idx_count",
-            "Total count of known idx-es in datapipe step",
-            labels=["step_name"],
-        )
-
-        changed_counts = GaugeMetricFamily(
-            "datapipe_step_changed_idx_count",
-            "Count of changed idx-es in datapipe step",
-            labels=["step_name"],
-        )
-
-        yield total_counts
-        yield changed_counts
+        return []
 
     def collect(self) -> Iterable[Metric]:
         total_counts = GaugeMetricFamily(

@@ -2,7 +2,6 @@ import click
 from datapipe.compute import DatapipeApp
 
 from datapipe_app import DatapipeAPI
-from datapipe_app.metrics import setup_prometheus_metrics
 
 
 def register_commands(cli: click.Group):
@@ -17,11 +16,5 @@ def register_commands(cli: click.Group):
 
         if not isinstance(app, DatapipeAPI):
             app = DatapipeAPI(app=app)
-
-        setup_prometheus_metrics(
-            app=app,
-            app_name="datapipe",
-            datapipe_app=app,
-        )
 
         uvicorn.run(app, host=host, port=port)
