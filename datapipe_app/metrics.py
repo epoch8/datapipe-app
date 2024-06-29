@@ -1,5 +1,8 @@
+from typing import Iterable
+
 from datapipe.compute import DatapipeApp
 from fastapi import FastAPI
+from prometheus_client import Metric
 from prometheus_client.core import REGISTRY, GaugeMetricFamily
 from prometheus_client.registry import Collector
 from starlette_exporter import PrometheusMiddleware, handle_metrics
@@ -14,7 +17,23 @@ class PipelineStatusCollector(Collector):
 
         self.datapipe_app = datapipe_app
 
-    def collect(self):
+    def describe(self) -> Iterable[Metric]:
+        total_counts = GaugeMetricFamily(
+            "datapipe_step_total_idx_count",
+            "Total count of known idx-es in datapipe step",
+            labels=["step_name"],
+        )
+
+        changed_counts = GaugeMetricFamily(
+            "datapipe_step_changed_idx_count",
+            "Count of changed idx-es in datapipe step",
+            labels=["step_name"],
+        )
+
+        yield total_counts
+        yield changed_counts
+
+    def collect(self) -> Iterable[Metric]:
         total_counts = GaugeMetricFamily(
             "datapipe_step_total_idx_count",
             "Total count of known idx-es in datapipe step",
