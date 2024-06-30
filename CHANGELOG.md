@@ -1,4 +1,4 @@
-# WIP 0.4.5
+# 0.4.5
 
 * Add total/changed counts to transform node in UI
 
