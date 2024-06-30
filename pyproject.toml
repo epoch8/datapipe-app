@@ -43,7 +43,8 @@ jaeger = ["opentelemetry-exporter-jaeger"]
 datapipe_app = "datapipe_app.cli:register_commands"
 
 [tool.poetry.group.dev.dependencies]
-datapipe-core = {version="*", extras=["sqlite"], allow-prereleases = true}
+datapipe-core = {version="*", extras=["sqlite"]}
+# datapipe-core = {version="*", extras=["sqlite"], allow-prereleases = true}
 
 mypy = "*"
 sqlalchemy = {version = "*", extras = ["mypy"]}
