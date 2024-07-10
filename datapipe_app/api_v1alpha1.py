@@ -25,13 +25,13 @@ class PipelineStepResponse(BaseModel):
     type_: str = Field(alias="type")
     transform_type: str
 
-    indexes: List[str] | None = None
+    indexes: Optional[List[str]] = None
 
     inputs: List[str]
     outputs: List[str]
 
-    total_idx_count: int | None = None
-    changed_idx_count: int | None = None
+    total_idx_count: Optional[int] = None
+    changed_idx_count: Optional[int] = None
 
 
 class TableResponse(BaseModel):
