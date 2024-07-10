@@ -37,8 +37,12 @@ class PipelineStatusCollector(Collector):
             try:
                 step_status = step.get_status(self.datapipe_app.ds)
 
-                total_counts.add_metric([step.name], step_status.total_idx_count)
-                changed_counts.add_metric([step.name], step_status.changed_idx_count)
+                total_counts.add_metric(
+                    [step.name], step_status.total_idx_count
+                )
+                changed_counts.add_metric(
+                    [step.name], step_status.changed_idx_count
+                )
             except NotImplementedError:
                 pass
 

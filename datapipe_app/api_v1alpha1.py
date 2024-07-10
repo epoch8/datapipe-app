@@ -160,9 +160,10 @@ def get_data_get_pd(
     sql_count = select(count()).select_from(sql)
     with ds.meta_dbconn.con.begin() as conn:
         total_count = conn.execute(sql_count).scalar()
+    assert total_count is not None
     if page * page_size > total_count:
         meta_df = pd.DataFrame(columns=[x.name for x in meta_schema])
-        data_df = dt.get_data(meta_df)
+        data_df = dt.get_data(IndexDF(meta_df))
     else:
         if order_by is not None:
             if order == "asc":
@@ -180,7 +181,7 @@ def get_data_get_pd(
         )
 
         if not meta_df.empty:
-            data_df = dt.get_data(meta_df)
+            data_df = dt.get_data(IndexDF(meta_df))
             data_df = meta_df.merge(data_df)[data_df.columns]  # save order
         else:
             data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
@@ -250,24 +251,68 @@ def get_data_post(
     )
 
     if not meta_df.empty:
-        data_df = dt.get_data(meta_df)
+        data_df = dt.get_data(IndexDF(meta_df))
         if req.order_by is not None:
             ascending = req.order == "asc"
-            data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
+            data_df.sort_values(
+                by=req.order_by, ascending=ascending, inplace=True
+            )
     else:
         data_df = pd.DataFrame()
 
     with dt.table_store.dbconn.con.begin() as conn:
+        total = conn.execute(sql_count).scalar()
+        assert total is not None
         return GetDataResponse(
             page=req.page,
             page_size=req.page_size,
-            total=conn.execute(sql_count).fetchone()[0],
+            total=total,
             data=data_df.fillna("").to_dict(orient="records"),
         )
 
 
+def get_meta_data(
+    step: BaseBatchTransformStep, req: GetDataRequest
+) -> GetDataResponse:
+    sql_table = step.meta_table.sql_table
+    sql_schema = step.meta_table.sql_schema
+
+    sql = select(*sql_schema).select_from(sql_table)
+    # Data table has no delete_ts
+    # sql = sql.where(sql_table.c.delete_ts.is_(None))
+    if req.order_by:
+        sql = sql.where(text(f"{req.order_by} is not null"))
+        sql = sql.order_by(text(f"{req.order_by} {req.order}"))
+    sql = sql.offset(req.page * req.page_size).limit(req.page_size)
+
+    for col, val in req.filters.items():
+        sql = sql.where(sql_table.c[col] == val)
+
+    sql_count = select(count()).select_from(sql_table)
+    for col, val in req.filters.items():
+        sql_count = sql_count.where(sql_table.c[col] == val)
+
+    meta_df = pd.read_sql_query(
+        sql,
+        con=step.meta_table.dbconn.con,
+    )
+
+    with step.meta_table.dbconn.con.begin() as conn:
+        total = conn.execute(sql_count).scalar()
+        assert total is not None
+        return GetDataResponse(
+            page=req.page,
+            page_size=req.page_size,
+            total=total,
+            data=meta_df.fillna("").to_dict(orient="records"),
+        )
+
+
 def make_app(
-    ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]
+    ds: DataStore,
+    catalog: Catalog,
+    pipeline: Pipeline,
+    steps: List[ComputeStep],
 ) -> FastAPI:
     app = FastAPI()
 
@@ -347,6 +392,22 @@ def make_app(
     def get_data_post_api(req: GetDataRequest) -> GetDataResponse:
         return get_data_post(ds, catalog, req)
 
+    @app.post("/get-meta-data")
+    def get_meta_data_api(req: GetDataRequest) -> GetDataResponse:
+        filtered_steps = filter_steps_by_labels(steps, name_prefix=req.table)
+        assert len(filtered_steps) == 1, "Invalid step name in request"
+        step = filtered_steps[0]
+
+        if not isinstance(step, BaseBatchTransformStep):
+            return GetDataResponse(
+                page=req.page,
+                page_size=req.page_size,
+                total=0,
+                data=[],
+            )
+
+        return get_meta_data(step, req)
+
     class FocusFilter(BaseModel):
         table_name: str
         items_idx: List[Dict]
@@ -377,17 +438,17 @@ def make_app(
         else:
             idx = None
 
-        existing_idx = dt.meta_table.get_existing_idx(idx=idx)
-
+        existing_idx = dt.meta_table.get_existing_idx(
+            idx=IndexDF(idx) if idx is not None else None
+        )
+        start_index = req.page * req.page_size
+        end_index = (req.page + 1) * req.page_size
+        data = existing_idx.iloc[start_index:end_index]
         return GetDataResponse(
             page=req.page,
             page_size=req.page_size,
             total=len(existing_idx),
-            data=dt.get_data(
-                existing_idx.iloc[
-                    req.page * req.page_size : (req.page + 1) * req.page_size
-                ]
-            ).to_dict(orient="records"),
+            data=dt.get_data(IndexDF(data)).to_dict(orient="records"),
         )
 
     class GetDataByIdxRequest(BaseModel):
@@ -398,7 +459,7 @@ def make_app(
     def get_data_by_idx(req: GetDataByIdxRequest):
         dt = catalog.get_datatable(ds, req.table_name)
 
-        res = dt.get_data(idx=pd.DataFrame.from_records(req.idx))
+        res = dt.get_data(idx=IndexDF(pd.DataFrame.from_records(req.idx)))
 
         return res.to_dict(orient="records")
 
@@ -420,7 +481,11 @@ def make_app(
     ) -> UpdateDataResponse:
         upsert = [
             {
-                **{k: v for k, v in request["task"]["data"].items() if k in data_field},
+                **{
+                    k: v
+                    for k, v in request["task"]["data"].items()
+                    if k in data_field
+                },
                 "annotations": [request["annotation"]],
             }
         ]
@@ -444,7 +509,9 @@ def make_app(
         with fsspec.open(filepath) as f:
             mime = mimetypes.guess_type(filepath)
             assert mime[0] is not None
-            return Response(content=f.read(), media_type=mime[0])
+            return Response(
+                content=f.read(), media_type=mime[0]  # type: ignore
+            )
 
     FastAPIInstrumentor.instrument_app(app, excluded_urls="docs")
 

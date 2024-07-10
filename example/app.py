@@ -13,8 +13,8 @@ DB_CONN_URI = os.environ.get("DB_CONN_URI", "sqlite+pysqlite3:///store.sqlite")
 
 # dbconn = DBConn("sqlite:///store.sqlite")
 # dbconn = DBConn("sqlite:///:memory:")
-# dbconn = DBConn("postgresql://postgres:postgres@localhost:5432/postgres")
-dbconn = DBConn(DB_CONN_URI)
+dbconn = DBConn("postgresql://postgres:postgres@localhost:5432/postgres")
+# dbconn = DBConn(DB_CONN_URI)
 
 catalog = Catalog(
     {
@@ -68,7 +68,9 @@ def agg_profile(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
             {
                 "user_id": user_id,
                 "offer_clicks": [
-                    x["offer_id"] for x in grp["event"] if x["event_type"] == "click"
+                    x["offer_id"]
+                    for x in grp["event"]
+                    if x["event_type"] == "click"
                 ],
                 "events_count": len(grp),
                 "active": True,
@@ -101,3 +103,20 @@ pipeline = Pipeline(
 ds = DataStore(dbconn, create_meta_table=False)
 
 app = DatapipeAPI(ds, catalog, pipeline)
+
+if __name__ == "__main__":
+    # events_table = ds.get_table("events")
+    # data = []
+    # for i in range(10):
+    #     data.append(
+    #         {
+    #             "user_id": i,
+    #             "event_id": i,
+    #             "event": {"event_type": "click", "offer_id": 1, "lang": "en"},
+    #         }
+    #     )
+    # events_table.store_chunk(pd.DataFrame(data))
+
+    from datapipe.compute import run_steps
+
+    run_steps(ds=ds, steps=app.steps)
