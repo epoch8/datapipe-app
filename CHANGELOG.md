@@ -1,6 +1,8 @@
 # 0.4.5
 
 * Add total/changed counts to transform node in UI
+* (post.1) Enable Python 3.11
+* (post.2) Fix Python 3.9 incompatibility
 
 # 0.4.4
 
