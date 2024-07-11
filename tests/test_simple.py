@@ -36,7 +36,7 @@ def test_update_data(app, background):
     time.sleep(0.5)
 
     res = client.post(
-        "/api/v1alpha1/get-data",
+        "/api/v1alpha1/get-table-data",
         json={
             "table": "events",
             "filters": {
@@ -52,7 +52,7 @@ def test_update_data(app, background):
     }
 
     res = client.post(
-        "/api/v1alpha1/get-data",
+        "/api/v1alpha1/get-table-data",
         json={
             "table": "user_profile",
             "filters": {
