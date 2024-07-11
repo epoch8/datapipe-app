@@ -46,7 +46,12 @@ def downgrade() -> None:
             nullable=True,
         ),
         sa.Column("type", sa.VARCHAR(length=100), autoincrement=False, nullable=True),
-        sa.Column("event", postgresql.JSON(astext_type=sa.Text()), autoincrement=False, nullable=True),
+        sa.Column(
+            "event",
+            postgresql.JSON(astext_type=sa.Text()),
+            autoincrement=False,
+            nullable=True,
+        ),
         sa.PrimaryKeyConstraint("id", name="datapipe_events_pkey"),
     )
     op.create_table(
@@ -54,10 +59,19 @@ def downgrade() -> None:
         sa.Column("id", sa.INTEGER(), autoincrement=True, nullable=False),
         sa.Column("step", sa.VARCHAR(length=100), autoincrement=False, nullable=True),
         sa.Column(
-            "event_ts", postgresql.TIMESTAMP(), server_default=sa.text("now()"), autoincrement=False, nullable=True
+            "event_ts",
+            postgresql.TIMESTAMP(),
+            server_default=sa.text("now()"),
+            autoincrement=False,
+            nullable=True,
         ),
         sa.Column("event", sa.VARCHAR(length=100), autoincrement=False, nullable=True),
-        sa.Column("event_payload", postgresql.JSONB(astext_type=sa.Text()), autoincrement=False, nullable=True),
+        sa.Column(
+            "event_payload",
+            postgresql.JSONB(astext_type=sa.Text()),
+            autoincrement=False,
+            nullable=True,
+        ),
         sa.PrimaryKeyConstraint("id", name="datapipe_step_events_pkey"),
     )
     op.drop_table("agg_profile_e8ae44cba1_meta")

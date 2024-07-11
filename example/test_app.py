@@ -1,3 +1,5 @@
+# TODO: remove
+
 import os
 from typing import Tuple
 
@@ -13,8 +15,8 @@ DB_CONN_URI = os.environ.get("DB_CONN_URI", "sqlite+pysqlite3:///store.sqlite")
 
 # dbconn = DBConn("sqlite:///store.sqlite")
 # dbconn = DBConn("sqlite:///:memory:")
-# dbconn = DBConn("postgresql://postgres:postgres@localhost:5432/postgres")
-dbconn = DBConn(DB_CONN_URI)
+dbconn = DBConn("postgresql://postgres:postgres@localhost:5432/postgres")
+# dbconn = DBConn(DB_CONN_URI)
 
 catalog = Catalog(
     {
@@ -54,14 +56,41 @@ catalog = Catalog(
                 create_table=False,
             )
         ),
+        "user_lang_test": Table(
+            store=TableStoreDB(
+                name="user_lang_test",
+                dbconn=dbconn,
+                data_sql_schema=[
+                    Column("user_id", Integer(), primary_key=True),
+                    Column("lang", String(length=100), primary_key=True),
+                ],
+                create_table=False,
+            )
+        ),
+        "events_test": Table(
+            store=TableStoreDB(
+                name="events",
+                dbconn=dbconn,
+                data_sql_schema=[
+                    Column("user_id", Integer(), primary_key=True),
+                    Column("event_id", Integer(), primary_key=True),
+                    Column("event", JSON()),
+                ],
+                create_table=False,
+            )
+        ),
     }
 )
 
 
-def agg_profile(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def agg_profile(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     res = []
 
     res_lang = []
+
+    res_lang_test = []
 
     for user_id, grp in df.groupby("user_id"):
         res.append(
@@ -80,9 +109,18 @@ def agg_profile(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
             }
         )
 
+        res_lang_test.append(
+            {
+                "user_id": user_id,
+                "lang": grp.iloc[-1]["event"]["lang"],
+            }
+        )
+
     return (
         pd.DataFrame.from_records(res),
         pd.DataFrame.from_records(res_lang),
+        pd.DataFrame.from_records(res_lang_test),
+        df,
     )
 
 
@@ -91,7 +129,7 @@ pipeline = Pipeline(
         BatchTransform(
             agg_profile,
             inputs=["events"],
-            outputs=["user_profile", "user_lang"],
+            outputs=["user_profile", "user_lang", "user_lang_test", "events_test"],
         ),
     ]
 )
@@ -99,3 +137,20 @@ pipeline = Pipeline(
 ds = DataStore(dbconn, create_meta_table=False)
 
 app = DatapipeAPI(ds, catalog, pipeline)
+
+if __name__ == "__main__":
+    events_table = ds.get_table("events")
+    data = []
+    for i in range(10):
+        data.append(
+            {
+                "user_id": i,
+                "event_id": i,
+                "event": {"event_type": "click", "offer_id": 1, "lang": "en"},
+            }
+        )
+    events_table.store_chunk(pd.DataFrame(data))
+
+    from datapipe.compute import run_steps
+
+    run_steps(ds=ds, steps=app.steps)

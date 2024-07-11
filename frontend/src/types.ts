@@ -40,6 +40,8 @@ interface GetDataReq {
     items_idx: Record<string, string | number>[]
   }
   filters?: Record<string, string | number>
+  order_by?: string
+  order?: "asc" | "desc"
 }
 
 type Node = MetaNode | TransformNode

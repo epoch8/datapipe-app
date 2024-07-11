@@ -22,7 +22,12 @@ def upgrade() -> None:
     op.create_table(
         "datapipe_events",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("event_ts", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=True),
+        sa.Column(
+            "event_ts",
+            sa.DateTime(),
+            server_default=sa.text("(CURRENT_TIMESTAMP)"),
+            nullable=True,
+        ),
         sa.Column("type", sa.String(length=100), nullable=True),
         sa.Column("event", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),

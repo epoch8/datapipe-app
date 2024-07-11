@@ -39,17 +39,42 @@ def downgrade() -> None:
         "user_profiles_meta",
         sa.Column("user_id", sa.INTEGER(), autoincrement=True, nullable=False),
         sa.Column("hash", sa.INTEGER(), autoincrement=False, nullable=True),
-        sa.Column("create_ts", postgresql.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=True),
-        sa.Column("update_ts", postgresql.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=True),
-        sa.Column("process_ts", postgresql.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=True),
-        sa.Column("delete_ts", postgresql.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=True),
+        sa.Column(
+            "create_ts",
+            postgresql.DOUBLE_PRECISION(precision=53),
+            autoincrement=False,
+            nullable=True,
+        ),
+        sa.Column(
+            "update_ts",
+            postgresql.DOUBLE_PRECISION(precision=53),
+            autoincrement=False,
+            nullable=True,
+        ),
+        sa.Column(
+            "process_ts",
+            postgresql.DOUBLE_PRECISION(precision=53),
+            autoincrement=False,
+            nullable=True,
+        ),
+        sa.Column(
+            "delete_ts",
+            postgresql.DOUBLE_PRECISION(precision=53),
+            autoincrement=False,
+            nullable=True,
+        ),
         sa.PrimaryKeyConstraint("user_id", name="user_profiles_meta_pkey"),
     )
     op.create_table(
         "user_profiles",
         sa.Column("user_id", sa.INTEGER(), autoincrement=True, nullable=False),
         sa.Column("lang", sa.VARCHAR(), autoincrement=False, nullable=True),
-        sa.Column("offer_clicks", postgresql.JSON(astext_type=sa.Text()), autoincrement=False, nullable=True),
+        sa.Column(
+            "offer_clicks",
+            postgresql.JSON(astext_type=sa.Text()),
+            autoincrement=False,
+            nullable=True,
+        ),
         sa.PrimaryKeyConstraint("user_id", name="user_profiles_pkey"),
     )
     op.drop_table("datapipe_step_events")
