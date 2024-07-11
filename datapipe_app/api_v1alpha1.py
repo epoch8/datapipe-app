@@ -15,8 +15,17 @@ from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import BackgroundTasks, FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.sql.expression import and_, asc, desc, select, text
 from sqlalchemy.sql.functions import count
+
+
+class ENVSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="datapipe_app_")
+    show_step_status: str = "False"  # "DATAPIPE_APP_SHOW_STEP_STATUS" in .env
+
+
+ENV_SETTINGS = ENVSettings()
 
 
 class PipelineStepResponse(BaseModel):
@@ -288,7 +297,8 @@ def make_app(
             outputs = [i.name for i in step.output_dts]
 
             if isinstance(step, BaseBatchTransformStep):
-                step_status = step.get_status(ds=ds)
+
+                step_status = step.get_status(ds=ds) if ENV_SETTINGS.show_step_status.lower() == "true" else None
 
                 return PipelineStepResponse(
                     type="transform",
@@ -297,8 +307,8 @@ def make_app(
                     indexes=step.transform_keys,
                     inputs=inputs,
                     outputs=outputs,
-                    total_idx_count=step_status.total_idx_count,
-                    changed_idx_count=step_status.changed_idx_count,
+                    total_idx_count=step_status.total_idx_count if step_status else None,
+                    changed_idx_count=step_status.changed_idx_count if step_status else None,
                 )
 
             else:
