@@ -15,17 +15,10 @@ from datapipe.types import ChangeList, IndexDF, Labels
 from fastapi import BackgroundTasks, FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.sql.expression import and_, asc, desc, select, text
 from sqlalchemy.sql.functions import count
 
-
-class ENVSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="datapipe_app_")
-    show_step_status: str = "False"  # "DATAPIPE_APP_SHOW_STEP_STATUS" in .env
-
-
-ENV_SETTINGS = ENVSettings()
+from datapipe_app.env_settings import ENV_SETTINGS
 
 
 class PipelineStepResponse(BaseModel):
