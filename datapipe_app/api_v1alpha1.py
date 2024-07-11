@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import and_, asc, desc, select, text
 from sqlalchemy.sql.functions import count
 
-from datapipe_app.env_settings import ENV_SETTINGS
+from datapipe_app.settings import APISettings
 
 
 class PipelineStepResponse(BaseModel):
@@ -291,7 +291,7 @@ def make_app(
 
             if isinstance(step, BaseBatchTransformStep):
 
-                step_status = step.get_status(ds=ds) if ENV_SETTINGS.show_step_status.lower() == "true" else None
+                step_status = step.get_status(ds=ds) if APISettings.show_step_status else None
 
                 return PipelineStepResponse(
                     type="transform",
