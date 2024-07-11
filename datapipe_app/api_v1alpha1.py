@@ -180,7 +180,7 @@ def get_table_data(ds: DataStore, catalog: Catalog, req: models.GetDataRequest) 
     if not meta_df.empty:
         data_df = dt.get_data(IndexDF(meta_df))
         for col, val in req.filters.items():
-            data_df = data_df[data_df[col].astype(str) == val]
+            data_df = data_df[data_df[col].astype(type(val)) == val]
         if req.order_by is not None:
             ascending = req.order == "asc"
             data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
