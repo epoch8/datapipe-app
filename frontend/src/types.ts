@@ -2,7 +2,8 @@ interface PipeTable {
   id: string,
   indexes: string[],
   size: number,
-  store_class: string
+  store_class: string,
+  type: string,
 }
 
 interface GraphData {

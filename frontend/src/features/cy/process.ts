@@ -2,6 +2,7 @@ import { omit } from 'lodash';
 import { GraphData } from '../../types';
 import Cytoscape from 'cytoscape';
 
+
 function reprocess_data(data: GraphData) {
   const nodes = new Map<string, Cytoscape.NodeDataDefinition>();
   const edges = new Set<Cytoscape.EdgeDataDefinition>();
@@ -13,8 +14,8 @@ function reprocess_data(data: GraphData) {
     }
 
     for (const [table, properties] of Object.entries(data.catalog)) {
+      properties.type = 'table';
       nodes.set(table, {
-        type: 'table',
         ...nodes.get(table),
         ...properties,
       })

@@ -31,9 +31,8 @@ function Cy() {
   useEffect(() => {
     async function loadGraph() {
       setLoading(true);
-      const response = await fetch(process.env['REACT_APP_GET_GRAPH_URL'] as string);
+      const response = await fetch(`http://localhost:3001${process.env['REACT_APP_GET_GRAPH_URL']}` as string);
       const data = await response.json();
-
       const {nodes, edges} = reprocess_data(data);
       const elements: Cytoscape.ElementDefinition[] = Array.from(
         nodes.entries()
@@ -52,7 +51,6 @@ function Cy() {
           data: edge
         })
       })
-
       setGraphData(elements);
       setLoading(false);
     }
@@ -107,10 +105,8 @@ function Cy() {
         return;
       }
 
-      if (node.data('type') === 'table') {
-        setCurrentTable(node.data());
-        setVisible(true);
-      }
+      setCurrentTable(node.data());
+      setVisible(true);
 
       node.connectedEdges().forEach((edge: any) => {
         if (edge.target().id() !== node.id()) {
