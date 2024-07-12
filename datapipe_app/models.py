@@ -52,3 +52,12 @@ class GetDataResponse(BaseModel):
     page_size: int
     total: int
     data: List[Dict]
+
+
+class RunStepRequest(BaseModel):
+    transform: str
+    filters: Optional[List[Dict]] = None
+
+
+class RunStepResponse(BaseModel):
+    status: str

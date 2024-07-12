@@ -153,6 +153,7 @@ const loadTable = async (
     const page = loadingsOptions.page ?? 1;
     const pageSize = loadingsOptions.pageSize;
     const overFocus = loadingsOptions.overFocus;
+    const _filters = loadingsOptions.filters;
     let data: any;
 
     setLoading(true);
@@ -171,21 +172,19 @@ const loadTable = async (
             table_name: _focus.table_name,
             items_idx: _focus.indexes,
         };
-    } else {
+    }
+    if (_filters) {
         postBody.filters = {};
-        const _filters = loadingsOptions.filters;
-        if (_filters) {
-            const respFilters = {} as { [key: string]: string | number };
-            let flag = false;
-            Object.entries(_filters).forEach(([tableName, vals]) => {
-                if (vals && vals[0] && typeof vals[0] !== "boolean") {
-                    respFilters[tableName] = vals[0] as string | number;
-                    flag = true;
-                }
-            });
-            if (flag) {
-                postBody.filters = respFilters;
+        const respFilters = {} as { [key: string]: string | number };
+        let flag = false;
+        Object.entries(_filters).forEach(([tableName, vals]) => {
+            if (vals && vals[0] && typeof vals[0] !== "boolean") {
+                respFilters[tableName] = vals[0] as string | number;
+                flag = true;
             }
+        });
+        if (flag) {
+            postBody.filters = respFilters;
         }
     }
 
