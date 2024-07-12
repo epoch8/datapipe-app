@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from datapipe.types import Labels
 from pydantic import BaseModel, Field
 
 
@@ -33,19 +32,6 @@ class GraphResponse(BaseModel):
     pipeline: List[PipelineStepResponse]
 
 
-class UpdateDataRequest(BaseModel):
-    table_name: str
-    upsert: Optional[List[Dict]] = None
-    enable_changelist: bool = True
-    background: bool = False
-    labels: Labels = []
-    # delete: List[Dict] = None
-
-
-class UpdateDataResponse(BaseModel):
-    result: str
-
-
 class FocusFilter(BaseModel):
     table_name: str
     items_idx: List[Dict]
@@ -66,8 +52,3 @@ class GetDataResponse(BaseModel):
     page_size: int
     total: int
     data: List[Dict]
-
-
-class GetDataByIdxRequest(BaseModel):
-    table_name: str
-    idx: List[Dict]

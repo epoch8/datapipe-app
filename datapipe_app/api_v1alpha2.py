@@ -1,9 +1,11 @@
+from datetime import datetime
 from typing import List
 
 import pandas as pd
 from datapipe.compute import Catalog, ComputeStep, DataStore, Pipeline, run_steps
 from datapipe.step.batch_transform import BaseBatchTransformStep
-from datapipe.types import IndexDF, Labels
+from datapipe.store.database import TableStoreDB
+from datapipe.types import Labels
 from fastapi import FastAPI, HTTPException
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from sqlalchemy.sql.expression import and_, or_, select, text
@@ -11,6 +13,96 @@ from sqlalchemy.sql.functions import count
 
 from datapipe_app import models
 from datapipe_app.settings import API_SETTINGS
+
+
+def get_table_store_db_data(table_store: TableStoreDB, req: models.GetDataRequest) -> models.GetDataResponse:
+    sql_schema = table_store.data_sql_schema
+    sql_table = table_store.data_table
+
+    sql = select(*sql_schema).select_from(sql_table)
+    if req.focus is not None:
+        filtered_focus_idx = [
+            {k: v for k, v in row.items() if k in table_store.primary_keys} for row in req.focus.items_idx
+        ]
+        primary_key_selectors = [and_(*[sql_table.c[k] == v for k, v in row.items()]) for row in filtered_focus_idx]
+        sql = sql.where(or_(*primary_key_selectors))
+
+    for col, val in req.filters.items():
+        sql = sql.where(sql_table.c[col] == val)
+
+    sql_count = select(count()).select_from(sql.subquery())
+
+    sql.offset(req.page * req.page_size).limit(req.page_size)
+
+    if req.order_by:
+        sql = sql.where(text(f"{req.order_by} is not null"))
+        sql = sql.order_by(text(f"{req.order_by} {req.order}"))
+
+    data_df = pd.read_sql_query(sql, con=table_store.dbconn.con)
+
+    with table_store.dbconn.con.begin() as conn:
+        total = conn.execute(sql_count).scalar_one_or_none()
+        assert total is not None
+
+    return models.GetDataResponse(
+        page=req.page,
+        page_size=req.page_size,
+        total=total,
+        data=data_df.fillna("-").to_dict(orient="records"),
+    )
+
+
+def get_table_data(ds: DataStore, catalog: Catalog, req: models.GetDataRequest) -> models.GetDataResponse:
+    dt = catalog.get_datatable(ds, req.table)
+    table_store = dt.table_store
+
+    if isinstance(table_store, TableStoreDB):
+        return get_table_store_db_data(table_store, req)
+
+    raise HTTPException(status_code=500, detail="Not implemented")
+
+
+def get_transform_data(step: BaseBatchTransformStep, req: models.GetDataRequest) -> models.GetDataResponse:
+    sql_table = step.meta_table.sql_table
+    sql_schema = step.meta_table.sql_schema
+
+    sql = select(*sql_schema).select_from(sql_table)
+
+    if req.focus is not None:
+        filtered_focus_idx = [
+            {k: v for k, v in row.items() if k in step.meta_table.primary_keys} for row in req.focus.items_idx
+        ]
+        primary_key_selectors = [and_(*[sql_table.c[k] == v for k, v in row.items()]) for row in filtered_focus_idx]
+        sql = sql.where(or_(*primary_key_selectors))
+
+    for col, val in req.filters.items():
+        if col == "process_ts":
+            val = datetime.fromisoformat(val).timestamp()
+        sql = sql.where(sql_table.c[col] == val)
+
+    sql_count = select(count()).select_from(sql.subquery())
+
+    sql = sql.offset(req.page * req.page_size).limit(req.page_size)
+
+    if req.order_by:
+        sql = sql.where(text(f"{req.order_by} is not null"))
+        sql = sql.order_by(text(f"{req.order_by} {req.order}"))
+
+    transform_data = pd.read_sql_query(sql, con=step.meta_table.dbconn.con)
+
+    transform_data = transform_data.drop("priority", axis=1)
+    transform_data["process_ts"] = pd.to_datetime(transform_data["process_ts"], unit="s", utc=True)
+
+    with step.meta_table.dbconn.con.begin() as conn:
+        total = conn.execute(sql_count).scalar_one_or_none()
+        assert total is not None
+
+    return models.GetDataResponse(
+        page=req.page,
+        page_size=req.page_size,
+        total=total,
+        data=transform_data.fillna("-").to_dict(orient="records"),
+    )
 
 
 def filter_steps_by_labels(steps: List[ComputeStep], labels: Labels = [], name_prefix: str = "") -> List[ComputeStep]:
@@ -24,84 +116,6 @@ def filter_steps_by_labels(steps: List[ComputeStep], labels: Labels = [], name_p
                 res.append(step)
 
     return res
-
-
-def get_table_data(ds: DataStore, catalog: Catalog, req: models.GetDataRequest) -> models.GetDataResponse:
-    dt = catalog.get_datatable(ds, req.table)
-    meta_table = dt.meta_table
-
-    sql = (
-        select(*meta_table.primary_schema)
-        .select_from(meta_table.sql_table)
-        .where(meta_table.sql_table.c.delete_ts.is_(None))
-    )
-    sql.offset(req.page * req.page_size).limit(req.page_size)
-
-    if req.focus is not None:
-        filtered_focus_idx = [{k: v for k, v in row.items() if k in dt.primary_keys} for row in req.focus.items_idx]
-        primary_key_selectors = [
-            and_(*[meta_table.sql_table.c[k] == v for k, v in row.items()]) for row in filtered_focus_idx
-        ]
-        sql = sql.where(or_(*primary_key_selectors))
-
-    meta_df = pd.read_sql_query(sql, con=meta_table.dbconn.con)
-
-    data_df = pd.DataFrame()
-    if not meta_df.empty:
-        data_df = dt.get_data(IndexDF(meta_df))
-        for col, val in req.filters.items():
-            data_df = data_df[data_df[col].astype(type(val)) == val]
-        if req.order_by is not None:
-            ascending = req.order == "asc"
-            data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
-
-    return models.GetDataResponse(
-        page=req.page,
-        page_size=req.page_size,
-        total=dt.get_size(),
-        data=data_df.fillna("-").to_dict(orient="records"),
-    )
-
-
-def get_transform_data(step: BaseBatchTransformStep, req: models.GetDataRequest) -> models.GetDataResponse:
-    sql_table = step.meta_table.sql_table
-    sql_schema = step.meta_table.sql_schema
-
-    sql = select(*sql_schema).select_from(sql_table)
-    sql = sql.offset(req.page * req.page_size).limit(req.page_size)
-
-    if req.order_by:
-        sql = sql.where(text(f"{req.order_by} is not null"))
-        sql = sql.order_by(text(f"{req.order_by} {req.order}"))
-
-    if req.focus is not None:
-        filtered_focus_idx = [
-            {k: v for k, v in row.items() if k in step.meta_table.primary_keys} for row in req.focus.items_idx
-        ]
-        primary_key_selectors = [and_(*[sql_table.c[k] == v for k, v in row.items()]) for row in filtered_focus_idx]
-        sql = sql.where(or_(*primary_key_selectors))
-
-    for col, val in req.filters.items():
-        sql = sql.where(sql_table.c[col] == val)
-
-    transform_data = pd.read_sql_query(sql, con=step.meta_table.dbconn.con)
-
-    transform_data = transform_data.drop("priority", axis=1)
-    transform_data["process_ts"] = pd.to_datetime(transform_data["process_ts"], unit="s", utc=True)
-
-    with step.meta_table.dbconn.con.begin() as conn:
-        sql_count = select(count()).select_from(sql_table)
-        for col, val in req.filters.items():
-            sql_count = sql_count.where(sql_table.c[col] == val)
-        total = conn.execute(sql_count).scalar()
-        assert total is not None
-
-    return models.GetDataResponse(
-        page=req.page,
-        page_size=req.page_size,
-        total=total,
-        data=transform_data.fillna("-").to_dict(orient="records"),
-    )
 
 
 def make_app(
