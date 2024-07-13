@@ -36,7 +36,7 @@ def test_update_data(app, background):
     time.sleep(0.5)
 
     res = client.post(
-        "/api/v1alpha1/get-table-data",
+        "/api/v1alpha1/get-data",
         json={
             "table": "events",
             "filters": {
@@ -52,23 +52,7 @@ def test_update_data(app, background):
     }
 
     res = client.post(
-        "/api/v1alpha1/get-table-data",
-        json={
-            "table": "events",
-            "filters": {
-                "user_id": "1",
-            },
-        },
-    )
-    assert res.status_code == 200
-    assert res.json()["data"][0] == {
-        "user_id": 1,
-        "event_id": 1,
-        "event": {"event_type": "click", "offer_id": 1},
-    }
-
-    res = client.post(
-        "/api/v1alpha1/get-table-data",
+        "/api/v1alpha1/get-data",
         json={
             "table": "user_profile",
             "filters": {

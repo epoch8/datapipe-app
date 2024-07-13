@@ -10,14 +10,73 @@ from datapipe.compute import (
     run_steps_changelist,
 )
 from datapipe.step.batch_transform import BaseBatchTransformStep
+from datapipe.store.database import TableStoreDB
 from datapipe.types import ChangeList, IndexDF, Labels
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Response
+from fastapi import BackgroundTasks, FastAPI, Query, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from sqlalchemy.sql.expression import and_, asc, desc, or_, select, text
+from pydantic import BaseModel, Field
+from sqlalchemy.sql.expression import and_, asc, desc, select, text
 from sqlalchemy.sql.functions import count
 
-from datapipe_app import models
 from datapipe_app.settings import API_SETTINGS
+
+
+class PipelineStepResponse(BaseModel):
+    name: str
+
+    type_: str = Field(alias="type")
+    transform_type: str
+
+    indexes: Optional[List[str]] = None
+
+    inputs: List[str]
+    outputs: List[str]
+
+    total_idx_count: Optional[int] = None
+    changed_idx_count: Optional[int] = None
+
+
+class TableResponse(BaseModel):
+    name: str
+
+    indexes: List[str]
+
+    size: int
+    store_class: str
+
+
+class GraphResponse(BaseModel):
+    catalog: Dict[str, TableResponse]
+    pipeline: List[PipelineStepResponse]
+
+
+class UpdateDataRequest(BaseModel):
+    table_name: str
+    upsert: Optional[List[Dict]] = None
+    enable_changelist: bool = True
+    background: bool = False
+    labels: Labels = []
+    # delete: List[Dict] = None
+
+
+class UpdateDataResponse(BaseModel):
+    result: str
+
+
+class GetDataRequest(BaseModel):
+    table: str
+    filters: Dict[str, Any] = {}
+    page: int = 0
+    page_size: int = 20
+    order_by: Optional[str] = None
+    order: Literal["asc", "desc"] = "asc"
+
+
+class GetDataResponse(BaseModel):
+    page: int
+    page_size: int
+    total: int
+    data: List[Dict]
 
 
 def filter_steps_by_labels(steps: List[ComputeStep], labels: Labels = [], name_prefix: str = "") -> List[ComputeStep]:
@@ -42,7 +101,7 @@ def update_data(
     upsert: Optional[List[Dict]],
     background: bool,
     enable_changelist: bool = True,
-) -> models.UpdateDataResponse:
+) -> UpdateDataResponse:
     dt = catalog.get_datatable(ds, table_name)
 
     cl = ChangeList()
@@ -64,7 +123,7 @@ def update_data(
         else:
             run_steps_changelist(ds=ds, steps=steps, changelist=cl)
 
-    return models.UpdateDataResponse(result="ok")
+    return UpdateDataResponse(result="ok")
 
 
 def get_data_get_pd(
@@ -96,10 +155,9 @@ def get_data_get_pd(
     sql_count = select(count()).select_from(sql)
     with ds.meta_dbconn.con.begin() as conn:
         total_count = conn.execute(sql_count).scalar()
-    assert total_count is not None
     if page * page_size > total_count:
         meta_df = pd.DataFrame(columns=[x.name for x in meta_schema])
-        data_df = dt.get_data(IndexDF(meta_df))
+        data_df = dt.get_data(meta_df)
     else:
         if order_by is not None:
             if order == "asc":
@@ -117,7 +175,7 @@ def get_data_get_pd(
         )
 
         if not meta_df.empty:
-            data_df = dt.get_data(IndexDF(meta_df))
+            data_df = dt.get_data(meta_df)
             data_df = meta_df.merge(data_df)[data_df.columns]  # save order
         else:
             data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
@@ -134,7 +192,7 @@ def get_data_get(
     filters: Optional[IndexDF] = None,
     order_by: Optional[List[str]] = None,
     order: Optional[Literal["asc", "desc"]] = None,
-) -> models.GetDataResponse:
+) -> GetDataResponse:
     if order is None:
         order = "asc"
 
@@ -148,7 +206,7 @@ def get_data_get(
         order_by=order_by,
         order=order,
     )
-    return models.GetDataResponse(
+    return GetDataResponse(
         page=page,
         page_size=page_size,
         total=total_count,
@@ -156,98 +214,60 @@ def get_data_get(
     )
 
 
-def get_table_data(ds: DataStore, catalog: Catalog, req: models.GetDataRequest) -> models.GetDataResponse:
+def get_data_post(ds: DataStore, catalog: Catalog, req: GetDataRequest) -> GetDataResponse:
     dt = catalog.get_datatable(ds, req.table)
-    meta_table = dt.meta_table
 
-    sql = (
-        select(*meta_table.primary_schema)
-        .select_from(meta_table.sql_table)
-        .where(meta_table.sql_table.c.delete_ts.is_(None))
-    )
-    sql.offset(req.page * req.page_size).limit(req.page_size)
+    assert isinstance(dt.table_store, TableStoreDB)
 
-    if req.focus is not None:
-        filtered_focus_idx = [{k: v for k, v in row.items() if k in dt.primary_keys} for row in req.focus.items_idx]
-        primary_key_selectors = [
-            and_(*[meta_table.sql_table.c[k] == v for k, v in row.items()]) for row in filtered_focus_idx
-        ]
-        sql = sql.where(or_(*primary_key_selectors))
-
-    meta_df = pd.read_sql_query(sql, con=meta_table.dbconn.con)
-
-    data_df = pd.DataFrame()
-    if not meta_df.empty:
-        data_df = dt.get_data(IndexDF(meta_df))
-        for col, val in req.filters.items():
-            data_df = data_df[data_df[col].astype(type(val)) == val]
-        if req.order_by is not None:
-            ascending = req.order == "asc"
-            data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
-
-    return models.GetDataResponse(
-        page=req.page,
-        page_size=req.page_size,
-        total=dt.get_size(),
-        data=data_df.fillna("-").to_dict(orient="records"),
-    )
-
-
-def get_transform_data(step: BaseBatchTransformStep, req: models.GetDataRequest) -> models.GetDataResponse:
-    sql_table = step.meta_table.sql_table
-    sql_schema = step.meta_table.sql_schema
+    sql_schema = dt.table_store.data_sql_schema
+    sql_table = dt.table_store.data_table
 
     sql = select(*sql_schema).select_from(sql_table)
-    sql = sql.offset(req.page * req.page_size).limit(req.page_size)
-
+    # Data table has no delete_ts
+    # sql = sql.where(sql_table.c.delete_ts.is_(None))
     if req.order_by:
         sql = sql.where(text(f"{req.order_by} is not null"))
         sql = sql.order_by(text(f"{req.order_by} {req.order}"))
-
-    if req.focus is not None:
-        filtered_focus_idx = [
-            {k: v for k, v in row.items() if k in step.meta_table.primary_keys} for row in req.focus.items_idx
-        ]
-        primary_key_selectors = [and_(*[sql_table.c[k] == v for k, v in row.items()]) for row in filtered_focus_idx]
-        sql = sql.where(or_(*primary_key_selectors))
+    sql = sql.offset(req.page * req.page_size).limit(req.page_size)
 
     for col, val in req.filters.items():
         sql = sql.where(sql_table.c[col] == val)
 
-    transform_data = pd.read_sql_query(sql, con=step.meta_table.dbconn.con)
+    sql_count = select(count()).select_from(sql_table)
+    for col, val in req.filters.items():
+        sql_count = sql_count.where(sql_table.c[col] == val)
 
-    transform_data = transform_data.drop("priority", axis=1)
-    transform_data["process_ts"] = pd.to_datetime(transform_data["process_ts"], unit="s", utc=True)
-
-    with step.meta_table.dbconn.con.begin() as conn:
-        sql_count = select(count()).select_from(sql_table)
-        for col, val in req.filters.items():
-            sql_count = sql_count.where(sql_table.c[col] == val)
-        total = conn.execute(sql_count).scalar()
-        assert total is not None
-
-    return models.GetDataResponse(
-        page=req.page,
-        page_size=req.page_size,
-        total=total,
-        data=transform_data.fillna("-").to_dict(orient="records"),
+    meta_df = pd.read_sql_query(
+        sql,
+        con=ds.meta_dbconn.con,
     )
 
+    if not meta_df.empty:
+        data_df = dt.get_data(meta_df)
+        if req.order_by is not None:
+            ascending = req.order == "asc"
+            data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
+    else:
+        data_df = pd.DataFrame()
 
-def make_app(
-    ds: DataStore,
-    catalog: Catalog,
-    pipeline: Pipeline,
-    steps: List[ComputeStep],
-) -> FastAPI:
+    with dt.table_store.dbconn.con.begin() as conn:
+        return GetDataResponse(
+            page=req.page,
+            page_size=req.page_size,
+            total=conn.execute(sql_count).fetchone()[0],
+            data=data_df.fillna("").to_dict(orient="records"),
+        )
+
+
+def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]) -> FastAPI:
     app = FastAPI()
 
-    @app.get("/graph", response_model=models.GraphResponse)
-    def get_graph() -> models.GraphResponse:
+    @app.get("/graph", response_model=GraphResponse)
+    def get_graph() -> GraphResponse:
         def table_response(table_name):
             tbl = catalog.get_datatable(ds, table_name)
 
-            return models.TableResponse(
+            return TableResponse(
                 name=tbl.name,
                 indexes=tbl.primary_keys,
                 size=tbl.get_size(),
@@ -259,21 +279,22 @@ def make_app(
             outputs = [i.name for i in step.output_dts]
 
             if isinstance(step, BaseBatchTransformStep):
+
                 step_status = step.get_status(ds=ds) if API_SETTINGS.show_step_status else None
 
-                return models.PipelineStepResponse(
+                return PipelineStepResponse(
                     type="transform",
                     transform_type=step.__class__.__name__,
                     name=step.get_name(),
                     indexes=step.transform_keys,
                     inputs=inputs,
                     outputs=outputs,
-                    total_idx_count=(step_status.total_idx_count if step_status else None),
-                    changed_idx_count=(step_status.changed_idx_count if step_status else None),
+                    total_idx_count=step_status.total_idx_count if step_status else None,
+                    changed_idx_count=step_status.changed_idx_count if step_status else None,
                 )
 
             else:
-                return models.PipelineStepResponse(
+                return PipelineStepResponse(
                     type="transform",
                     transform_type=step.__class__.__name__,
                     name=step.get_name(),
@@ -281,16 +302,16 @@ def make_app(
                     outputs=outputs,
                 )
 
-        return models.GraphResponse(
+        return GraphResponse(
             catalog={table_name: table_response(table_name) for table_name in catalog.catalog.keys()},
             pipeline=[pipeline_step_response(step) for step in steps],
         )
 
-    @app.post("/update-data", response_model=models.UpdateDataResponse)
+    @app.post("/update-data", response_model=UpdateDataResponse)
     def update_data_api(
-        req: models.UpdateDataRequest,
+        req: UpdateDataRequest,
         background_tasks: BackgroundTasks,
-    ) -> models.UpdateDataResponse:
+    ) -> UpdateDataResponse:
         return update_data(
             ds=ds,
             catalog=catalog,
@@ -303,41 +324,61 @@ def make_app(
         )
 
     # /table/<table_name>?page=1&id=111&another_filter=value&sort=<+|->column_name
-    @app.get("/get-data", response_model=models.GetDataResponse)
+    @app.get("/get-data", response_model=GetDataResponse)
     def get_data_get_api(
         table: str,
         page: int = 0,
         page_size: int = 20,
-    ) -> models.GetDataResponse:
+    ) -> GetDataResponse:
         return get_data_get(ds, catalog, table, page, page_size)
 
-    @app.post("/get-table-data", response_model=models.GetDataResponse)
-    def get_data_post_api(req: models.GetDataRequest) -> models.GetDataResponse:
-        return get_table_data(ds, catalog, req)
+    @app.post("/get-data", response_model=GetDataResponse)
+    def get_data_post_api(req: GetDataRequest) -> GetDataResponse:
+        return get_data_post(ds, catalog, req)
 
-    @app.post("/get-transform-data")
-    def get_meta_data_api(req: models.GetDataRequest) -> models.GetDataResponse:
-        filtered_steps = filter_steps_by_labels(steps, name_prefix=req.table)
-        if len(filtered_steps) != 1:
-            raise HTTPException(status_code=404, detail="Step not found")
-        step = filtered_steps[0]
+    class FocusFilter(BaseModel):
+        table_name: str
+        items_idx: List[Dict]
 
-        # maybe infer on type or smth?
-        if not isinstance(step, BaseBatchTransformStep):
-            return models.GetDataResponse(
-                page=req.page,
-                page_size=req.page_size,
-                total=0,
-                data=[],
-            )
+    class GetDataWithFocusRequest(BaseModel):
+        table_name: str
 
-        return get_transform_data(step, req)
+        page: int = 0
+        page_size: int = 20
 
-    @app.post("/get-data-by-idx")
-    def get_data_by_idx(req: models.GetDataByIdxRequest):
+        focus: Optional[FocusFilter] = None
+
+    @app.post("/get-data-with-focus", response_model=GetDataResponse)
+    def get_data_with_focus(req: GetDataWithFocusRequest) -> GetDataResponse:
         dt = catalog.get_datatable(ds, req.table_name)
 
-        res = dt.get_data(idx=IndexDF(pd.DataFrame.from_records(req.idx)))
+        if req.focus is not None:
+            idx = pd.DataFrame.from_records(
+                [{k: v for item in req.focus.items_idx for k, v in item.items() if k in dt.primary_keys}]
+            ).dropna()
+        else:
+            idx = None
+
+        existing_idx = dt.meta_table.get_existing_idx(idx=idx)
+
+        start_index = req.page * req.page_size
+        end_index = (req.page + 1) * req.page_size
+        return GetDataResponse(
+            page=req.page,
+            page_size=req.page_size,
+            total=len(existing_idx),
+            data=dt.get_data(existing_idx.iloc[start_index:end_index]).to_dict(orient="records"),
+        )
+
+    class GetDataByIdxRequest(BaseModel):
+        table_name: str
+        idx: List[Dict]
+
+    @app.post("/get-data-by-idx")
+    def get_data_by_idx(req: GetDataByIdxRequest):
+        dt = catalog.get_datatable(ds, req.table_name)
+
+        res = dt.get_data(idx=pd.DataFrame.from_records(req.idx))
 
         return res.to_dict(orient="records")
 
@@ -354,7 +395,7 @@ def make_app(
         table_name: str = Query(..., title="Input table name"),
         data_field: List = Query(..., title="Fields to get from data"),
         background: bool = Query(False, title="Run as Background Task (default = False)"),
-    ) -> models.UpdateDataResponse:
+    ) -> UpdateDataResponse:
         upsert = [
             {
                 **{k: v for k, v in request["task"]["data"].items() if k in data_field},
@@ -381,7 +422,7 @@ def make_app(
         with fsspec.open(filepath) as f:
             mime = mimetypes.guess_type(filepath)
             assert mime[0] is not None
-            return Response(content=f.read(), media_type=mime[0])  # type: ignore
+            return Response(content=f.read(), media_type=mime[0])
 
     FastAPIInstrumentor.instrument_app(app, excluded_urls="docs")
 
