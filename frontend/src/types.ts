@@ -94,6 +94,10 @@ interface FilterDropDownComponentProps {
   clearFilters: any;
 }
 
+interface RunStepWebSocketComponentProps {
+  transform: string;
+};
+
 type Node = MetaNode | TransformNode
 export type { 
   TransformNode,
@@ -108,4 +112,6 @@ export type {
   FocusType,
   Options,
   IdxRow,
+  RunStepWebSocketComponentProps,
  }
+

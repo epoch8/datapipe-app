@@ -15,6 +15,7 @@ import {
     Input,
     Space,
     InputRef,
+    AlertProps,
 } from "antd";
 import { ColumnsType } from "antd/lib/table";
 import ReactJson from "react-json-view";
@@ -157,7 +158,7 @@ const loadTable = async (
             reqUrl = process.env["REACT_APP_GET_TABLE_URL"] as string;
         }
         const response = await fetch(`http://localhost:3001${reqUrl}`, {
-            method: "POST",
+            method: 'POST',
             headers: {
                 "Content-Type": "application/json",
             },
@@ -242,7 +243,7 @@ const loadTable = async (
     });
 };
 
-function Table({ current }: { current: PipeTable }) {
+function Table({ current, setAlertMsg }: { current: PipeTable, setAlertMsg: Dispatch<SetStateAction<AlertProps | null>> }) {
     const [columns, setColumns] = useState<ColumnsType<any>>([]);
     const [data, setData] = useState<any>();
     const [loading, setLoading] = useState(false);
@@ -263,14 +264,29 @@ function Table({ current }: { current: PipeTable }) {
     const [filteredInfo, setFilteredInfo] = useState<
         Record<string, FilterValue | null>
     >({});
-    
     const skipRenderFlag = useRef(true);
     const searchInput = useRef<InputRef>(null);
 
-    const sendNewTransform = async () => {
-        const response = await fetch(`http://localhost:3001${process.env['REACT_APP_GET_GRAPH_URL']}` as string)
-        const data = await response.json()
-        console.log(data)
+    const sendRunStep = async () => {
+        const body = {
+            "transform": current.id,
+            "filters": [filteredInfo]
+        }
+        const response = await fetch(`http://localhost:3001${process.env['REACT_APP_RUN_STEP_URL']}` as string, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+        })
+        const data = await response.json();
+        if (response.status === 200) {
+            const tmp = {message: data.status, type: "info"} as AlertProps;
+            setAlertMsg(tmp);
+        } else {
+            const tmp = {message: data.detail, type: "error"} as AlertProps;
+            setAlertMsg(tmp);
+        }
     }
     
     const rowSelection = {
@@ -396,16 +412,18 @@ function Table({ current }: { current: PipeTable }) {
                             <Button size="small" onClick={clearFocus}>
                                 Clear
                             </Button>
-                            <Button size="small" type="primary" onClick={sendNewTransform} >
-                                Send
-                            </Button>
+                            { current.type === "transform" && (
+                                <Button size="small" type="primary" onClick={sendRunStep} >
+                                    Run Step
+                                </Button>
+                            )}   
                         </Space>
                     </>
                 )}
             </div>
-            { !tableFocus && (
-                <Button type="primary" onClick={sendNewTransform} >
-                    Send
+            { !tableFocus && current.type === "transform" && (
+                <Button type="primary" onClick={sendRunStep} >
+                    Run Step
                 </Button>
             )
             }
