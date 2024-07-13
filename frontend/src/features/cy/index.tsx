@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import Cytoscape from 'cytoscape';
 import CytoscapeComponent from 'react-cytoscapejs'
 import "cytoscape-context-menus/cytoscape-context-menus.css";
@@ -13,9 +13,8 @@ import './style.css';
 import { reprocessData } from './process';
 import { stylesheet } from './stylesheet';
 import { Table } from '../table';
-import { Alert, AlertProps, Drawer, InputRef, Progress, Spin } from 'antd';
+import { Alert, AlertProps, Drawer, Progress, Spin } from 'antd';
 import { PipeTable, RunStepWebSocketComponentProps } from '../../types';
-import { FilterValue } from 'antd/lib/table/interface';
 
 Cytoscape.use(nodeHtmlLabel);
 Cytoscape.use(dagre);

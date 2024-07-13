@@ -16,7 +16,6 @@ import {
     Space,
     InputRef,
     AlertProps,
-    List,
 } from "antd";
 import { ColumnsType } from "antd/lib/table";
 import ReactJson from "react-json-view";
