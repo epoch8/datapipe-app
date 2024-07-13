@@ -18,59 +18,19 @@ import {
 } from "antd";
 import { ColumnsType } from "antd/lib/table";
 import ReactJson from "react-json-view";
-import { PipeTable, GetDataReq } from "../../types";
+import { 
+    PipeTable,
+    GetDataReq,
+    FilterDropDownComponentProps,
+    Pagination,
+    Sorting,
+    TableLoadingOptions,
+    FocusType, 
+    Options, 
+    IdxRow 
+} from "../../types";
 import { FilterValue, SorterResult } from "antd/lib/table/interface";
 
-interface Options {
-    total: number;
-    page: number;
-    pageSize: number;
-}
-
-type IdxRow = {
-    [name: string]: string | number;
-};
-
-interface FocusType {
-    table_name: string;
-    keys: React.Key[];
-    indexes: IdxRow[];
-}
-
-interface TableLoadingOptions {
-    page?: number;
-    pageSize?: number;
-    overFocus?: FocusType | null;
-    filters?: Record<string, FilterValue | null>;
-    orderBy?: string;
-    order?: "asc" | "desc";
-}
-
-interface Pagination {
-    page: number;
-    pageSize: number;
-}
-
-interface Sorting {
-    orderBy?: string;
-    order?: "asc" | "desc";
-}
-
-interface TableState {
-    pagination: Pagination;
-    focus?: FocusType;
-    filter: Record<string, FilterValue | null>;
-}
-
-interface FilterDropDownComponentProps {
-    searchInput: RefObject<InputRef>;
-    column: string;
-    selectedKeys: any;
-    colValue: any;
-    setSelectedKeys: (keys: any) => void;
-    confirm: any;
-    clearFilters: any;
-}
 
 const FilterDropDownComponent: FC<FilterDropDownComponentProps> = ({
     searchInput,
@@ -293,7 +253,6 @@ function Table({ current }: { current: PipeTable }) {
         page: 1,
         pageSize: 20,
     });
-    const searchInput = useRef<InputRef>(null);
     const [pagination, setPagination] = useState<Pagination>({
         page: 1,
         pageSize: 20,
@@ -302,46 +261,19 @@ function Table({ current }: { current: PipeTable }) {
         orderBy: undefined,
         order: undefined,
     });
-
     const [filteredInfo, setFilteredInfo] = useState<
         Record<string, FilterValue | null>
     >({});
-
-    useEffect(() => {
-        setFilteredInfo({});
-        setSorting({});
-        setPagination({
-            page: 1,
-            pageSize: 20,
-        });
-    }, [current]);
-
+    
     const skipRenderFlag = useRef(true);
+    const searchInput = useRef<InputRef>(null);
 
-    useEffect(() => {
-        if (skipRenderFlag.current) {
-            skipRenderFlag.current = false;
-            return;
-        }
-        loadTable(
-            searchInput,
-            setLoading,
-            setData,
-            setColumns,
-            setOptions,
-            current,
-            options,
-            {
-                orderBy: sorting.orderBy,
-                order: sorting.order,
-                page: pagination.page,
-                pageSize: pagination.pageSize,
-                filters: filteredInfo,
-            },
-            tableFocus
-        );
-    }, [filteredInfo, tableFocus, pagination]);
-
+    const sendNewTransform = async () => {
+        const response = await fetch(`http://localhost:3001${process.env['REACT_APP_GET_GRAPH_URL']}` as string)
+        const data = await response.json()
+        console.log(data)
+    }
+    
     const rowSelection = {
         onChange: (selectedRowKeys: React.Key[], selectedRows: any[]) => {
             const newFocus = {
@@ -391,6 +323,39 @@ function Table({ current }: { current: PipeTable }) {
         setTableFocus(undefined);
     }, [current, options, tableFocus]);
 
+    useEffect(() => {
+        setFilteredInfo({});
+        setSorting({});
+        setPagination({
+            page: 1,
+            pageSize: 20,
+        });
+    }, [current]);
+
+    useEffect(() => {
+        if (skipRenderFlag.current) {
+            skipRenderFlag.current = false;
+            return;
+        }
+        loadTable(
+            searchInput,
+            setLoading,
+            setData,
+            setColumns,
+            setOptions,
+            current,
+            options,
+            {
+                orderBy: sorting.orderBy,
+                order: sorting.order,
+                page: pagination.page,
+                pageSize: pagination.pageSize,
+                filters: filteredInfo,
+            },
+            tableFocus
+        );
+    }, [filteredInfo, tableFocus, pagination]);
+
     return (
         <>
             <div
@@ -428,12 +393,23 @@ function Table({ current }: { current: PipeTable }) {
                             })}
                             &nbsp;
                         </div>
-                        <Button size="small" onClick={clearFocus}>
-                            Clear
-                        </Button>
+                        <Space>
+                            <Button size="small" onClick={clearFocus}>
+                                Clear
+                            </Button>
+                            <Button size="small" type="primary" onClick={sendNewTransform} >
+                                Send
+                            </Button>
+                        </Space>
                     </>
                 )}
             </div>
+            { !tableFocus && (
+                <Button type="primary" onClick={sendNewTransform} >
+                    Send
+                </Button>
+            )
+            }
             {Object.values(filteredInfo).length > 0 &&
                 (!data || data.length === 0) && (
                     <Button

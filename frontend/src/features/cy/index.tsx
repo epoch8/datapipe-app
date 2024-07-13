@@ -10,7 +10,7 @@ import dagre from 'cytoscape-dagre';
 import contextMenus from 'cytoscape-context-menus';
 
 import './style.css';
-import { reprocess_data } from './process';
+import { reprocessData } from './process';
 import { stylesheet } from './stylesheet';
 import { Table } from '../table';
 import { Drawer, Spin } from 'antd';
@@ -33,7 +33,7 @@ function Cy() {
       setLoading(true);
       const response = await fetch(`http://localhost:3001${process.env['REACT_APP_GET_GRAPH_URL']}` as string);
       const data = await response.json();
-      const {nodes, edges} = reprocess_data(data);
+      const {nodes, edges} = reprocessData(data);
       const elements: Cytoscape.ElementDefinition[] = Array.from(
         nodes.entries()
       ).map(([nodeId, options]) => ({

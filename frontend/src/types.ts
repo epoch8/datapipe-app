@@ -1,3 +1,7 @@
+import { InputRef } from "antd/lib/input/Input";
+import { FilterValue } from "antd/lib/table/interface";
+import { RefObject } from "react";
+
 interface PipeTable {
   id: string,
   indexes: string[],
@@ -44,5 +48,64 @@ interface GetDataReq {
   order?: "asc" | "desc"
 }
 
+interface Options {
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+type IdxRow = {
+  [name: string]: string | number;
+};
+
+interface FocusType {
+  table_name: string;
+  keys: React.Key[];
+  indexes: IdxRow[];
+}
+
+interface TableLoadingOptions {
+  page?: number;
+  pageSize?: number;
+  overFocus?: FocusType | null;
+  filters?: Record<string, FilterValue | null>;
+  orderBy?: string;
+  order?: "asc" | "desc";
+}
+
+interface Pagination {
+  page: number;
+  pageSize: number;
+}
+
+interface Sorting {
+  orderBy?: string;
+  order?: "asc" | "desc";
+}
+
+
+interface FilterDropDownComponentProps {
+  searchInput: RefObject<InputRef>;
+  column: string;
+  selectedKeys: any;
+  colValue: any;
+  setSelectedKeys: (keys: any) => void;
+  confirm: any;
+  clearFilters: any;
+}
+
 type Node = MetaNode | TransformNode
-export type { TransformNode, MetaNode, PipeTable, GraphData, GetDataReq }
+export type { 
+  TransformNode,
+  MetaNode,
+  PipeTable, 
+  GraphData, 
+  GetDataReq, 
+  TableLoadingOptions, 
+  Pagination, 
+  Sorting, 
+  FilterDropDownComponentProps,
+  FocusType,
+  Options,
+  IdxRow,
+ }
