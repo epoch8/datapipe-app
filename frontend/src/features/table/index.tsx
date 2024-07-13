@@ -16,6 +16,7 @@ import {
     Space,
     InputRef,
     AlertProps,
+    List,
 } from "antd";
 import { ColumnsType } from "antd/lib/table";
 import ReactJson from "react-json-view";
@@ -28,7 +29,9 @@ import {
     TableLoadingOptions,
     FocusType, 
     Options, 
-    IdxRow 
+    IdxRow, 
+    TableProps,
+    listOfSelectedColumnsProps
 } from "../../types";
 import { FilterValue, SorterResult } from "antd/lib/table/interface";
 
@@ -45,7 +48,6 @@ const FilterDropDownComponent: FC<FilterDropDownComponentProps> = ({
     const handleReset = (clearFilters: () => void) => {
         clearFilters();
     };
-
     return (
         <div style={{ padding: 8 }}>
             <Input
@@ -98,6 +100,47 @@ const FilterDropDownComponent: FC<FilterDropDownComponentProps> = ({
         </div>
     );
 };
+
+const ListOfSelectedColumns: FC<listOfSelectedColumnsProps> = ({ tableFocus }) => {
+    const defaultValue = 5;
+    const [isLoadAll, setIsLoadAll] = useState<boolean>(false);
+    const [showCount, setShowCount] = useState<number>(defaultValue);
+
+    if (!tableFocus) {
+        return null;
+    };
+
+    const toggleShowAll = () => {
+        setIsLoadAll(!isLoadAll);
+        if (!isLoadAll){
+            setShowCount(tableFocus.indexes.length);
+        }else {
+            setShowCount(defaultValue);
+        }
+    };
+
+    return (
+        <div style={{margin: "8px"}}>
+            {(tableFocus.indexes || []).slice(0, isLoadAll ? tableFocus.indexes?.length : showCount).map((idx, index) => (
+                <div key={index}>
+                    {Object.entries(idx).map(([key, val], index) => (
+                        <span key={index}>
+                            <strong>{key}</strong>=
+                            <strong>{val}</strong>
+                            &nbsp;
+                        </span>
+                    ))}
+                </div>
+            ))}
+            {tableFocus.indexes?.length && (
+                <Button size="small" type="primary" onClick={toggleShowAll}>
+                    {isLoadAll ? 'Show Less' : 'Show All'}
+                </Button>
+            )}
+        </div>
+    );
+};
+
 
 const loadTable = async (
     searchInput: RefObject<InputRef>,
@@ -243,7 +286,7 @@ const loadTable = async (
     });
 };
 
-function Table({ current, setAlertMsg }: { current: PipeTable, setAlertMsg: Dispatch<SetStateAction<AlertProps | null>> }) {
+const Table: FC<TableProps> = ({current, setAlertMsg}) => {
     const [columns, setColumns] = useState<ColumnsType<any>>([]);
     const [data, setData] = useState<any>();
     const [loading, setLoading] = useState(false);
@@ -261,16 +304,14 @@ function Table({ current, setAlertMsg }: { current: PipeTable, setAlertMsg: Disp
         orderBy: undefined,
         order: undefined,
     });
-    const [filteredInfo, setFilteredInfo] = useState<
-        Record<string, FilterValue | null>
-    >({});
+    const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
     const skipRenderFlag = useRef(true);
     const searchInput = useRef<InputRef>(null);
 
     const sendRunStep = async () => {
         const body = {
             "transform": current.id,
-            "filters": [filteredInfo]
+            "filters": tableFocus?.indexes,
         }
         const response = await fetch(`http://localhost:3001${process.env['REACT_APP_RUN_STEP_URL']}` as string, {
             method: "POST",
@@ -389,24 +430,7 @@ function Table({ current, setAlertMsg }: { current: PipeTable, setAlertMsg: Disp
                         table: <strong>{tableFocus?.table_name}&nbsp;</strong>
                         indexes:&nbsp;
                         <div>
-                            {(tableFocus?.indexes || []).map((idx, index) => {
-                                return (
-                                    <div key={index}>
-                                        {Object.entries(idx).map(
-                                            ([key, val], index) => {
-                                                return (
-                                                    <span key={index}>
-                                                        <strong>{key}</strong>=
-                                                        <strong>{val}</strong>
-                                                        &nbsp;
-                                                    </span>
-                                                );
-                                            }
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            &nbsp;
+                            <ListOfSelectedColumns tableFocus={tableFocus}/>
                         </div>
                         <Space>
                             <Button size="small" onClick={clearFocus}>

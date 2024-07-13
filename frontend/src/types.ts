@@ -1,6 +1,7 @@
+import { AlertProps } from "antd";
 import { InputRef } from "antd/lib/input/Input";
 import { FilterValue } from "antd/lib/table/interface";
-import { RefObject } from "react";
+import { Dispatch, RefObject, SetStateAction } from "react";
 
 interface PipeTable {
   id: string,
@@ -98,6 +99,15 @@ interface RunStepWebSocketComponentProps {
   transform: string;
 };
 
+interface TableProps {
+  current: PipeTable,
+  setAlertMsg: Dispatch<SetStateAction<AlertProps | null>>,
+}
+
+interface listOfSelectedColumnsProps {
+  tableFocus: FocusType | null,
+}
+
 type Node = MetaNode | TransformNode
 export type { 
   TransformNode,
@@ -113,5 +123,7 @@ export type {
   Options,
   IdxRow,
   RunStepWebSocketComponentProps,
+  TableProps,
+  listOfSelectedColumnsProps,
  }
 

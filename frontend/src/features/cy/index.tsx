@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useRef, useState } from 'react';
 import Cytoscape from 'cytoscape';
 import CytoscapeComponent from 'react-cytoscapejs'
 import "cytoscape-context-menus/cytoscape-context-menus.css";
@@ -13,8 +13,9 @@ import './style.css';
 import { reprocessData } from './process';
 import { stylesheet } from './stylesheet';
 import { Table } from '../table';
-import { Alert, AlertProps, Drawer, Progress, Spin } from 'antd';
+import { Alert, AlertProps, Drawer, InputRef, Progress, Spin } from 'antd';
 import { PipeTable, RunStepWebSocketComponentProps } from '../../types';
+import { FilterValue } from 'antd/lib/table/interface';
 
 Cytoscape.use(nodeHtmlLabel);
 Cytoscape.use(dagre);
@@ -58,7 +59,7 @@ function Cy() {
   const [cy, setCy] = useState<Cytoscape.Core>();
   const [alertMsg, setAlertMsg] = useState<AlertProps | null>(null);
   const [currentStep, isCurrentStep] = useState<string>("");
-  const [isWebSocket, setIsWebSocket] = useState<boolean>(false); 
+  const [isWebSocket, setIsWebSocket] = useState<boolean>(false);
 
   const closeAlert = () => {
     setAlertMsg(null);
@@ -140,7 +141,6 @@ function Cy() {
         setVisible(false);
         return;
       }
-
       setCurrentTable(node.data());
       setVisible(true);
 
@@ -213,7 +213,12 @@ function Cy() {
             <div className="drag-badge">=</div>
           </div>
         </Hammer>
-        {currentTable && <Table current={currentTable} setAlertMsg={setAlertMsg}/>}
+        {currentTable &&
+          <Table
+            current={currentTable}
+            setAlertMsg={setAlertMsg}
+          />
+        }
       </Drawer>
       <CytoscapeComponent
         stylesheet={stylesheet}
