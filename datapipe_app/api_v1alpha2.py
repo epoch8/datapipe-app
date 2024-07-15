@@ -1,9 +1,10 @@
 import asyncio
 from datetime import datetime
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 import pandas as pd
 from datapipe.compute import Catalog, ComputeStep, DataStore, Pipeline, run_steps
+from datapipe.run_config import RunConfig
 from datapipe.step.batch_transform import BaseBatchTransformStep
 from datapipe.store.database import TableStoreDB
 from datapipe.types import Labels
@@ -187,8 +188,8 @@ def run_step(ds: DataStore, step: BaseBatchTransformStep, transform_state: model
 
     def get_full_process_ids(
         ds: DataStore,
-        chunk_size: int | None = None,
-        run_config: Any | None = None,
+        chunk_size: Optional[int] = None,
+        run_config: Optional[RunConfig] = None,
     ):
         idx_total, idx_gen = _get_full_process_ids(ds, chunk_size, run_config)
         transform_state.total = idx_total
@@ -201,7 +202,7 @@ def run_step(ds: DataStore, step: BaseBatchTransformStep, transform_state: model
 
         return idx_total, updating_idx_gen()
 
-    step.get_full_process_ids = get_full_process_ids  # type: ignore
+    step.get_full_process_ids = get_full_process_ids
     run_steps(ds=ds, steps=[step])
 
 
