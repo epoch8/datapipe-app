@@ -132,3 +132,10 @@
     align-items: center;
     transform: scale(1.5);
 }
+
+.pipeline-btn {
+    position: absolute;
+    z-index: 100;
+    left: 8px;
+    top: 8px
+}

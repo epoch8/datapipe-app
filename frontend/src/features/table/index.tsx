@@ -19,21 +19,20 @@ import {
 } from "antd";
 import { ColumnsType } from "antd/lib/table";
 import ReactJson from "react-json-view";
-import { 
+import {
     PipeTable,
     GetDataReq,
     FilterDropDownComponentProps,
     Pagination,
     Sorting,
     TableLoadingOptions,
-    FocusType, 
-    Options, 
-    IdxRow, 
+    FocusType,
+    Options,
+    IdxRow,
     TableProps,
-    listOfSelectedColumnsProps
+    listOfSelectedColumnsProps,
 } from "../../types";
 import { FilterValue, SorterResult } from "antd/lib/table/interface";
-
 
 const FilterDropDownComponent: FC<FilterDropDownComponentProps> = ({
     searchInput,
@@ -57,12 +56,12 @@ const FilterDropDownComponent: FC<FilterDropDownComponentProps> = ({
                     switch (typeof colValue) {
                         case "number":
                             setSelectedKeys(
-                                e.target.value ? [e.target.value] : []
+                                e.target.value ? [e.target.value] : [],
                             ); //TODO OnlyNumbers
                             break;
                         case "string":
                             setSelectedKeys(
-                                e.target.value ? [e.target.value] : []
+                                e.target.value ? [e.target.value] : [],
                             );
                     }
                 }}
@@ -100,46 +99,48 @@ const FilterDropDownComponent: FC<FilterDropDownComponentProps> = ({
     );
 };
 
-const ListOfSelectedColumns: FC<listOfSelectedColumnsProps> = ({ tableFocus }) => {
+const ListOfSelectedColumns: FC<listOfSelectedColumnsProps> = ({
+    tableFocus,
+}) => {
     const defaultValue = 5;
     const [isLoadAll, setIsLoadAll] = useState<boolean>(false);
     const [showCount, setShowCount] = useState<number>(defaultValue);
 
     if (!tableFocus) {
         return null;
-    };
+    }
 
     const toggleShowAll = () => {
         setIsLoadAll(!isLoadAll);
-        if (!isLoadAll){
+        if (!isLoadAll) {
             setShowCount(tableFocus.indexes.length);
-        }else {
+        } else {
             setShowCount(defaultValue);
         }
     };
 
     return (
-        <div style={{margin: "8px"}}>
-            {(tableFocus.indexes || []).slice(0, isLoadAll ? tableFocus.indexes?.length : showCount).map((idx, index) => (
-                <div key={index}>
-                    {Object.entries(idx).map(([key, val], index) => (
-                        <span key={index}>
-                            <strong>{key}</strong>=
-                            <strong>{val}</strong>
-                            &nbsp;
-                        </span>
-                    ))}
-                </div>
-            ))}
+        <div style={{ margin: "8px" }}>
+            {(tableFocus.indexes || [])
+                .slice(0, isLoadAll ? tableFocus.indexes?.length : showCount)
+                .map((idx, index) => (
+                    <div key={index}>
+                        {Object.entries(idx).map(([key, val], index) => (
+                            <span key={index}>
+                                <strong>{key}</strong>=<strong>{val}</strong>
+                                &nbsp;
+                            </span>
+                        ))}
+                    </div>
+                ))}
             {tableFocus.indexes?.length && (
                 <Button size="small" type="primary" onClick={toggleShowAll}>
-                    {isLoadAll ? 'Show Less' : 'Show All'}
+                    {isLoadAll ? "Show Less" : "Show All"}
                 </Button>
             )}
         </div>
     );
 };
-
 
 const loadTable = async (
     searchInput: RefObject<InputRef>,
@@ -150,7 +151,7 @@ const loadTable = async (
     current: PipeTable,
     options: Options,
     loadingsOptions?: TableLoadingOptions,
-    tableFocus?: FocusType
+    tableFocus?: FocusType,
 ) => {
     loadingsOptions = loadingsOptions ?? ({} as TableLoadingOptions);
     const page = loadingsOptions.page ?? 1;
@@ -200,7 +201,7 @@ const loadTable = async (
             reqUrl = process.env["REACT_APP_GET_TABLE_URL"] as string;
         }
         const response = await fetch(`http://localhost:3001${reqUrl}`, {
-            method: 'POST',
+            method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
@@ -271,11 +272,11 @@ const loadTable = async (
                     }
                 },
             };
-        })
+        }),
     );
 
     setData(
-        data.data.map((element: any, index: number) => ({ ...element, index }))
+        data.data.map((element: any, index: number) => ({ ...element, index })),
     );
     setLoading(false);
     setOptions({
@@ -285,7 +286,7 @@ const loadTable = async (
     });
 };
 
-const Table: FC<TableProps> = ({current, setAlertMsg}) => {
+const Table: FC<TableProps> = ({ current, setAlertMsg }) => {
     const [columns, setColumns] = useState<ColumnsType<any>>([]);
     const [data, setData] = useState<any>();
     const [loading, setLoading] = useState(false);
@@ -303,32 +304,37 @@ const Table: FC<TableProps> = ({current, setAlertMsg}) => {
         orderBy: undefined,
         order: undefined,
     });
-    const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
+    const [filteredInfo, setFilteredInfo] = useState<
+        Record<string, FilterValue | null>
+    >({});
     const skipRenderFlag = useRef(true);
     const searchInput = useRef<InputRef>(null);
 
     const sendRunStep = async () => {
         const body = {
-            "transform": current.id,
-            "filters": tableFocus?.indexes,
-        }
-        const response = await fetch(`http://localhost:3001${process.env['REACT_APP_RUN_STEP_URL']}` as string, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
+            transform: current.id,
+            filters: tableFocus?.indexes,
+        };
+        const response = await fetch(
+            `http://localhost:3001${process.env["REACT_APP_RUN_STEP_URL"]}` as string,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(body),
             },
-            body: JSON.stringify(body),
-        })
+        );
         const data = await response.json();
         if (response.status === 200) {
-            const tmp = {message: data.status, type: "info"} as AlertProps;
+            const tmp = { message: data.status, type: "info" } as AlertProps;
             setAlertMsg(tmp);
         } else {
-            const tmp = {message: data.detail, type: "error"} as AlertProps;
+            const tmp = { message: data.detail, type: "error" } as AlertProps;
             setAlertMsg(tmp);
         }
-    }
-    
+    };
+
     const rowSelection = {
         onChange: (selectedRowKeys: React.Key[], selectedRows: any[]) => {
             const newFocus = {
@@ -350,7 +356,7 @@ const Table: FC<TableProps> = ({current, setAlertMsg}) => {
         (
             newPagination: TablePaginationConfig,
             newFilters: Record<string, FilterValue | null>,
-            newSorter: SorterResult<any>[] | SorterResult<any>
+            newSorter: SorterResult<any>[] | SorterResult<any>,
         ) => {
             if (newSorter) {
                 const sorter = Array.isArray(newSorter)
@@ -371,7 +377,7 @@ const Table: FC<TableProps> = ({current, setAlertMsg}) => {
             }
             setFilteredInfo(newFilters);
         },
-        [current, options, tableFocus]
+        [current, options, tableFocus],
     );
 
     const clearFocus = useCallback(() => {
@@ -407,7 +413,7 @@ const Table: FC<TableProps> = ({current, setAlertMsg}) => {
                 pageSize: pagination.pageSize,
                 filters: filteredInfo,
             },
-            tableFocus
+            tableFocus,
         );
     }, [filteredInfo, tableFocus, pagination]);
 
@@ -429,27 +435,30 @@ const Table: FC<TableProps> = ({current, setAlertMsg}) => {
                         table: <strong>{tableFocus?.table_name}&nbsp;</strong>
                         indexes:&nbsp;
                         <div>
-                            <ListOfSelectedColumns tableFocus={tableFocus}/>
+                            <ListOfSelectedColumns tableFocus={tableFocus} />
                         </div>
                         <Space>
                             <Button size="small" onClick={clearFocus}>
                                 Clear
                             </Button>
-                            { current.type === "transform" && (
-                                <Button size="small" type="primary" onClick={sendRunStep} >
+                            {current.type === "transform" && (
+                                <Button
+                                    size="small"
+                                    type="primary"
+                                    onClick={sendRunStep}
+                                >
                                     Run Step
                                 </Button>
-                            )}   
+                            )}
                         </Space>
                     </>
                 )}
             </div>
-            { !tableFocus && current.type === "transform" && (
-                <Button type="primary" onClick={sendRunStep} >
+            {!tableFocus && current.type === "transform" && (
+                <Button type="primary" onClick={sendRunStep}>
                     Run Step
                 </Button>
-            )
-            }
+            )}
             {Object.values(filteredInfo).length > 0 &&
                 (!data || data.length === 0) && (
                     <Button
@@ -497,6 +506,6 @@ const Table: FC<TableProps> = ({current, setAlertMsg}) => {
             />
         </>
     );
-}
+};
 
 export { Table };

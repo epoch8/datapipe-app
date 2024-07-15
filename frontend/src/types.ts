@@ -4,126 +4,124 @@ import { FilterValue } from "antd/lib/table/interface";
 import { Dispatch, RefObject, SetStateAction } from "react";
 
 interface PipeTable {
-  id: string,
-  indexes: string[],
-  size: number,
-  store_class: string,
-  type: string,
+    id: string;
+    indexes: string[];
+    size: number;
+    store_class: string;
+    type: string;
 }
 
 interface GraphData {
-  catalog: {
-    [name: string]: PipeTable
-  }
-  pipeline: Node[]
+    catalog: {
+        [name: string]: PipeTable;
+    };
+    pipeline: Node[];
 }
 
 interface BaseNode {
-  id: string;
-  type: string;
-  name: string;
-  func?: string;
+    id: string;
+    type: string;
+    name: string;
+    func?: string;
 }
 
 interface TransformNode extends BaseNode {
-  type: 'transform';
-  inputs: string[];
-  outputs: string[];
+    type: "transform";
+    inputs: string[];
+    outputs: string[];
 }
 
 interface MetaNode extends BaseNode {
-  type: 'meta';
-  graph: GraphData;
+    type: "meta";
+    graph: GraphData;
 }
 
 interface GetDataReq {
-  table: string
-  page: number
-  page_size: number
-  focus?: {
-    table_name: string,
-    items_idx: Record<string, string | number>[]
-  }
-  filters?: Record<string, string | number>
-  order_by?: string
-  order?: "asc" | "desc"
+    table: string;
+    page: number;
+    page_size: number;
+    focus?: {
+        table_name: string;
+        items_idx: Record<string, string | number>[];
+    };
+    filters?: Record<string, string | number>;
+    order_by?: string;
+    order?: "asc" | "desc";
 }
 
 interface Options {
-  total: number;
-  page: number;
-  pageSize: number;
+    total: number;
+    page: number;
+    pageSize: number;
 }
 
 type IdxRow = {
-  [name: string]: string | number;
+    [name: string]: string | number;
 };
 
 interface FocusType {
-  table_name: string;
-  keys: React.Key[];
-  indexes: IdxRow[];
+    table_name: string;
+    keys: React.Key[];
+    indexes: IdxRow[];
 }
 
 interface TableLoadingOptions {
-  page?: number;
-  pageSize?: number;
-  overFocus?: FocusType | null;
-  filters?: Record<string, FilterValue | null>;
-  orderBy?: string;
-  order?: "asc" | "desc";
+    page?: number;
+    pageSize?: number;
+    overFocus?: FocusType | null;
+    filters?: Record<string, FilterValue | null>;
+    orderBy?: string;
+    order?: "asc" | "desc";
 }
 
 interface Pagination {
-  page: number;
-  pageSize: number;
+    page: number;
+    pageSize: number;
 }
 
 interface Sorting {
-  orderBy?: string;
-  order?: "asc" | "desc";
+    orderBy?: string;
+    order?: "asc" | "desc";
 }
 
-
 interface FilterDropDownComponentProps {
-  searchInput: RefObject<InputRef>;
-  column: string;
-  selectedKeys: any;
-  colValue: any;
-  setSelectedKeys: (keys: any) => void;
-  confirm: any;
-  clearFilters: any;
+    searchInput: RefObject<InputRef>;
+    column: string;
+    selectedKeys: any;
+    colValue: any;
+    setSelectedKeys: (keys: any) => void;
+    confirm: any;
+    clearFilters: any;
 }
 
 interface RunStepWebSocketComponentProps {
-  transform: string;
-};
+    transform: string;
+}
 
 interface TableProps {
-  current: PipeTable,
-  setAlertMsg: Dispatch<SetStateAction<AlertProps | null>>,
+    current: PipeTable;
+    setAlertMsg: Dispatch<SetStateAction<AlertProps | null>>;
 }
 
 interface listOfSelectedColumnsProps {
-  tableFocus: FocusType | null,
+    tableFocus: FocusType | null;
 }
 
-type Node = MetaNode | TransformNode
-export type { 
-  TransformNode,
-  MetaNode,
-  PipeTable, 
-  GraphData, 
-  GetDataReq, 
-  TableLoadingOptions, 
-  Pagination, 
-  Sorting, 
-  FilterDropDownComponentProps,
-  FocusType,
-  Options,
-  IdxRow,
-  RunStepWebSocketComponentProps,
-  TableProps,
-  listOfSelectedColumnsProps,
- }
-
+type Node = MetaNode | TransformNode;
+export type {
+    TransformNode,
+    MetaNode,
+    PipeTable,
+    GraphData,
+    GetDataReq,
+    TableLoadingOptions,
+    Pagination,
+    Sorting,
+    FilterDropDownComponentProps,
+    FocusType,
+    Options,
+    IdxRow,
+    RunStepWebSocketComponentProps,
+    TableProps,
+    listOfSelectedColumnsProps,
+};
