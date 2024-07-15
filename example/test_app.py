@@ -4,6 +4,7 @@ import os
 import sys
 import time
 from typing import Tuple
+import uuid
 
 import pandas as pd
 import sqlalchemy as sa
@@ -82,8 +83,6 @@ def agg_profile(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFr
 
     res_lang = []
 
-    res_lang_test = []
-
     for user_id, grp in df.groupby("user_id"):
         res.append(
             {
@@ -141,7 +140,7 @@ def create_tables():
     app.ds.meta_dbconn.sqla_metadata.create_all(app.ds.meta_dbconn.con)
 
 
-def add_data(should_run_steps: bool = False, new: bool = False) -> None:
+def add_data(should_run_steps: bool = False) -> None:
     events_table = ds.get_table("events")
     data = []
     for i in range(10):
@@ -150,7 +149,7 @@ def add_data(should_run_steps: bool = False, new: bool = False) -> None:
                 {
                     "user_id": i,
                     "event_id": 10 - j,
-                    "event": {"event_type": "click", "offer_id": 1 if not new else 2, "lang": "en"},
+                    "event": {"event_type": "click", "offer_id": str(uuid.uuid4()), "lang": "en"},
                 }
             )
     events_table.store_chunk(pd.DataFrame(data))
@@ -167,8 +166,6 @@ if __name__ == "__main__":
                 create_tables()
             if arg == "add":
                 add_data()
-            if arg == "add-new":
-                add_data(new=True)
             if arg == "run":
                 run_steps(ds=ds, steps=app.steps)
     else:

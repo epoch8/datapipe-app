@@ -1,5 +1,4 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, List, Set
 
@@ -8,13 +7,7 @@ from datapipe.compute import Catalog, ComputeStep, DataStore, Pipeline, run_step
 from datapipe.step.batch_transform import BaseBatchTransformStep
 from datapipe.store.database import TableStoreDB
 from datapipe.types import Labels
-from fastapi import (
-    BackgroundTasks,
-    FastAPI,
-    HTTPException,
-    WebSocket,
-    WebSocketDisconnect,
-)
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from sqlalchemy.sql.expression import and_, or_, select, text
 from sqlalchemy.sql.functions import count, func
@@ -129,71 +122,87 @@ def filter_steps_by_labels(steps: List[ComputeStep], labels: Labels = [], name_p
     return res
 
 
-class RunningStepsHelper:
-    def __init__(self, ds: DataStore) -> None:
-        self._ds = ds
-        self._running_steps: Dict[str, Dict[str, Any]] = {}
-        self._transform_web_sockets: Dict[str, Set[WebSocket]] = {}
-        self._thread_pool = ThreadPoolExecutor(max_workers=4)
+class WebSocketManager:
+    def __init__(self) -> None:
+        self._connections: Set[WebSocket] = set()
+
+    async def connect(self, websocket: WebSocket) -> None:
+        await websocket.accept()
+        self._connections.add(websocket)
+
+    def disconnect(self, websocket: WebSocket) -> None:
+        self._connections.remove(websocket)
+
+    async def broadcast_json(self, data: Dict[str, Any]) -> None:
+        for ws in self._connections:
+            try:
+                await ws.send_json(data)
+            except RuntimeError:
+                pass
+
+    def __len__(self) -> int:
+        return len(self._connections)
+
+
+class RunningStepsHelper(Dict[str, models.RunStepResponse]):
+    def __init__(self) -> None:
+        self._transform_web_sockets: Dict[str, WebSocketManager] = {}
 
     async def add_ws(self, websocket: WebSocket, transform: str) -> None:
         if transform not in self._transform_web_sockets:
-            self._transform_web_sockets[transform] = set()
-        self._transform_web_sockets[transform].add(websocket)
+            self._transform_web_sockets[transform] = WebSocketManager()
+        await self._transform_web_sockets[transform].connect(websocket)
 
-    async def remove_ws(self, websocket: WebSocket, transform: str) -> None:
+    def remove_ws(self, websocket: WebSocket, transform: str) -> None:
         if transform not in self._transform_web_sockets:
             return
-        self._transform_web_sockets[transform].remove(websocket)
-
-    def transform_is_running(self, transform: str) -> bool:
-        if transform not in self._running_steps:
-            return False
-        return self._running_steps[transform]["running"]
-
-    def get_data_for_transform(self, transform: str) -> Dict[str, Any]:
-        transform_data = self._running_steps[transform]
-        return {
-            "status": "running" if transform_data["running"] else "finished",
-            "processed": transform_data["processed"],
-            "total": transform_data["start_changed_idx_count"],
-        }
-
-    def add_transform(self, transform: str, step: ComputeStep) -> None:
-        step_status = step.get_status(ds=self._ds)
-        self._running_steps[transform] = {
-            "running": True,
-            "step": step,
-            "start_total_idx_count": step_status.total_idx_count,
-            "start_changed_idx_count": step_status.changed_idx_count,
-            "processed": 0,
-        }
-        self._thread_pool.submit(self._run_step, transform)
-
-    def _run_step(self, transform: str) -> None:
-        step = self._running_steps[transform]["step"]
-        run_steps(ds=self._ds, steps=[step])
-        self._running_steps[transform]["running"] = False
-
-    def _update_transform_status(self, transform: str) -> None:
-        transform_data = self._running_steps[transform]
-        step = transform_data["step"]
-        step_status = step.get_status(ds=self._ds)
-        total_diff = step_status.total_idx_count - transform_data["start_total_idx_count"]
-        new_processed = transform_data["start_changed_idx_count"] - (step_status.changed_idx_count - total_diff)
-        transform_data["processed"] = new_processed
+        self._transform_web_sockets[transform].disconnect(websocket)
+        if len(self._transform_web_sockets[transform]) == 0:
+            del self._transform_web_sockets[transform]
 
     async def update_transform_status(self, transform: str) -> None:
-        while self.transform_is_running(transform):
-            self._update_transform_status(transform)
-            await asyncio.sleep(1)
+        while self[transform].status != "finished":
+            await self._update_transform_status(transform)
+            await asyncio.sleep(0.5)
+        await self._update_transform_status(transform=transform)
+        del self[transform]
 
-        self._update_transform_status(transform=transform)
-        for ws in self._transform_web_sockets[transform]:
-            try:
-                await ws.send_json(self.get_data_for_transform(transform))
-            except RuntimeError:
-                pass
+    async def _update_transform_status(self, transform: str) -> None:
+        if transform not in self._transform_web_sockets:
+            return
+        state = self.get(transform)
+        if state is None:
+            return
+        await self._transform_web_sockets[transform].broadcast_json(
+            state.model_dump(mode="json"),
+        )
+
+    def set_job_as_finished(self, transform: str) -> None:
+        self[transform].status = "finished"
+
+
+def run_step(ds: DataStore, step: BaseBatchTransformStep, transform_state: models.RunStepResponse) -> None:
+    # Before we progress callback to datapipe-core we need to do this shenanigans 💀
+    _get_full_process_ids = step.get_full_process_ids
+
+    def get_full_process_ids(
+        ds: DataStore,
+        chunk_size: int | None = None,
+        run_config: Any | None = None,
+    ):
+        idx_total, idx_gen = _get_full_process_ids(ds, chunk_size, run_config)
+        transform_state.total = idx_total
+        transform_state.status = "running"
+
+        def updating_idx_gen():
+            for idx in idx_gen:
+                yield idx
+                transform_state.processed += step.chunk_size
+
+        return idx_total, updating_idx_gen()
+
+    step.get_full_process_ids = get_full_process_ids  # type: ignore
+    run_steps(ds=ds, steps=[step])
 
 
 def make_app(
@@ -270,42 +279,39 @@ def make_app(
 
         return get_transform_data(step, req)
 
-    _running_steps_helper = RunningStepsHelper(ds)
+    _running_steps_helper = RunningStepsHelper()
 
     @app.websocket("/ws/transform/{transform}/run-status")
     async def ws_transform_run_status(websocket: WebSocket, transform: str):
-        await websocket.accept()
         await _running_steps_helper.add_ws(websocket, transform)
         try:
             while True:
-                if _running_steps_helper.transform_is_running(transform):
-                    data = _running_steps_helper.get_data_for_transform(transform)
-                    await websocket.send_json(data)
-                await asyncio.sleep(1)
+                json = await websocket.receive_json()
+                json_data = models.RunStepRequest.model_validate(json)
+                if json_data.operation != "run-step":
+                    continue
+                if state := _running_steps_helper.get(transform):
+                    await websocket.send_json(
+                        state.model_dump(mode="json"),
+                    )
+                    continue
+                filtered_steps = filter_steps_by_labels(steps, name_prefix=transform)
+                if len(filtered_steps) != 1:
+                    await websocket.send_json({"status": "not found"})
+                step = filtered_steps[0]
+                if not isinstance(step, BaseBatchTransformStep):
+                    await websocket.send_json({"status": "not allowed"})
+                _running_steps_helper[transform] = models.RunStepResponse(
+                    status="starting",
+                    processed=0,
+                    total=0,
+                )
+                _ = asyncio.create_task(_running_steps_helper.update_transform_status(transform=transform))
+                run_step_thread = asyncio.to_thread(run_step, ds, step, _running_steps_helper[transform])
+                run_steps_task = asyncio.create_task(run_step_thread)
+                run_steps_task.add_done_callback(lambda _: _running_steps_helper.set_job_as_finished(transform))
         except WebSocketDisconnect:
-            await _running_steps_helper.remove_ws(websocket, transform)
-
-    @app.post("/transform/run", response_model=models.RunStepResponse)
-    def run_transform(request: models.RunStepRequest, background_tasks: BackgroundTasks):
-        # TODO: Some lock here??? to prevent multiple runs at the same time
-        if _running_steps_helper.transform_is_running(request.transform):
-            return models.RunStepResponse(status="already running")
-
-        filtered_steps = filter_steps_by_labels(steps, name_prefix=request.transform)
-        if len(filtered_steps) != 1:
-            raise HTTPException(status_code=404, detail="Step not found")
-        step = filtered_steps[0]
-        if not isinstance(step, BaseBatchTransformStep):
-            raise HTTPException(status_code=400, detail="Step is not allowed to run")
-
-        step_status = step.get_status(ds=ds)
-        if step_status.changed_idx_count == 0:
-            return models.RunStepResponse(status="no changes")
-
-        _running_steps_helper.add_transform(transform=request.transform, step=step)
-        background_tasks.add_task(_running_steps_helper.update_transform_status, transform=request.transform)
-
-        return models.RunStepResponse(status="ok")
+            _running_steps_helper.remove_ws(websocket, transform)
 
     FastAPIInstrumentor.instrument_app(app, excluded_urls="docs")
 

@@ -56,8 +56,11 @@ class GetDataResponse(BaseModel):
 
 class RunStepRequest(BaseModel):
     transform: str
+    operation: Literal["run-step"]
     filters: Optional[List[Dict]] = None
 
 
 class RunStepResponse(BaseModel):
-    status: str
+    status: Literal["starting", "running", "finished"]
+    processed: int
+    total: int
