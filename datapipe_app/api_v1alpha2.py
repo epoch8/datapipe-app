@@ -1,4 +1,6 @@
 import asyncio
+import copy
+import math
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
@@ -7,7 +9,7 @@ from datapipe.compute import Catalog, ComputeStep, DataStore, Pipeline, run_step
 from datapipe.run_config import RunConfig
 from datapipe.step.batch_transform import BaseBatchTransformStep
 from datapipe.store.database import TableStoreDB
-from datapipe.types import Labels
+from datapipe.types import Labels, IndexDF
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from sqlalchemy.sql.expression import and_, or_, select, text
@@ -182,28 +184,55 @@ class RunningStepsHelper(Dict[str, models.RunStepResponse]):
         self[transform].status = "finished"
 
 
-def run_step(ds: DataStore, step: BaseBatchTransformStep, transform_state: models.RunStepResponse) -> None:
+def run_step(
+    ds: DataStore, step: BaseBatchTransformStep, transform_state: models.RunStepResponse, filters: List[Dict] | None
+) -> None:
     # Before we progress callback to datapipe-core we need to do this shenanigans 💀
-    _get_full_process_ids = step.get_full_process_ids
-
-    def get_full_process_ids(
-        ds: DataStore,
-        chunk_size: Optional[int] = None,
-        run_config: Optional[RunConfig] = None,
-    ):
-        idx_total, idx_gen = _get_full_process_ids(ds, chunk_size, run_config)
-        transform_state.total = idx_total
+    _step = copy.copy(step)
+    if filters is not None:
+        selected_data = [{k: v for k, v in row.items() if k in _step.meta_table.primary_keys} for row in filters]
+        idx = pd.DataFrame.from_records(selected_data)
+        transform_state.total = len(selected_data)
         transform_state.status = "running"
 
-        def updating_idx_gen():
-            for idx in idx_gen:
-                yield idx
-                transform_state.processed += step.chunk_size
+        def get_full_process_ids(
+            ds: DataStore,
+            chunk_size: Optional[int] = None,
+            run_config: Optional[RunConfig] = None,
+        ):
+            idx_total = len(selected_data)
 
-        return idx_total, updating_idx_gen()
+            def updating_idx_gen():
+                chunk_count = math.ceil(idx_total / _step.chunk_size)
+                for i in range(chunk_count):
+                    start = i * _step.chunk_size
+                    end = (i + 1) * _step.chunk_size
+                    yield IndexDF(idx.iloc[start:end])
+                    transform_state.processed += _step.chunk_size
 
-    step.get_full_process_ids = get_full_process_ids
-    run_steps(ds=ds, steps=[step])
+            return idx_total, updating_idx_gen()
+
+    else:
+        _get_full_process_ids = _step.get_full_process_ids
+
+        def get_full_process_ids(
+            ds: DataStore,
+            chunk_size: Optional[int] = None,
+            run_config: Optional[RunConfig] = None,
+        ):
+            idx_total, idx_gen = _get_full_process_ids(ds, chunk_size, run_config)
+            transform_state.total = idx_total
+            transform_state.status = "running"
+
+            def updating_idx_gen():
+                for idx in idx_gen:
+                    yield idx
+                    transform_state.processed += _step.chunk_size
+
+            return idx_total, updating_idx_gen()
+
+    _step.get_full_process_ids = get_full_process_ids
+    run_steps(ds=ds, steps=[_step])
 
 
 def make_app(
@@ -308,7 +337,9 @@ def make_app(
                     total=0,
                 )
                 _ = asyncio.create_task(_running_steps_helper.update_transform_status(transform=transform))
-                run_step_thread = asyncio.to_thread(run_step, ds, step, _running_steps_helper[transform])
+                run_step_thread = asyncio.to_thread(
+                    run_step, ds, step, _running_steps_helper[transform], json_data.filters
+                )
                 run_steps_task = asyncio.create_task(run_step_thread)
                 run_steps_task.add_done_callback(lambda _: _running_steps_helper.set_job_as_finished(transform))
         except WebSocketDisconnect:

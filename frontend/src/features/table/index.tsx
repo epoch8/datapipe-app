@@ -16,6 +16,7 @@ import {
     Space,
     InputRef,
     Progress,
+    AlertProps,
 } from "antd";
 import { ColumnsType } from "antd/lib/table";
 import ReactJson from "react-json-view";
@@ -73,16 +74,19 @@ const RunStepWebSocketComponent: FC<RunStepWebSocketComponentProps> = ({
             let processed: number = 0;
             let total: number = 0;
             if (msg.status === "not found" || msg.status === "not allowed") {
-                setAlertMsg(msg.status);
+                setAlertMsg({
+                    type: "warning",
+                    message: msg.status,
+                } as AlertProps);
                 return;
             }
-            if (msg.status === "starting" || msg.status === "running") {
+            if (msg.status === "running") {
                 status = "active";
                 processed = msg.processed;
                 total = msg.total;
-            } else {
-                processed = 100;
-                total = 100;
+            } else if (msg.status === "finished") {
+                processed = msg.processed;
+                total = msg.total;
                 status = "success";
                 setDataIsProcessed(true);
             }
@@ -115,17 +119,19 @@ const RunStepWebSocketComponent: FC<RunStepWebSocketComponentProps> = ({
 
     return (
         <>
-            {data.status === "active" && (
+            {(data.status === "active" || data.status === "success") && (
                 <>
                     <div>Total: {data.total}</div>
                     <div>Processed: {data.processed}</div>
+                    <Progress
+                        status={data.status}
+                        percent={Math.round(
+                            (data.processed * 100) / data.total,
+                        )}
+                        size="small"
+                    ></Progress>
                 </>
             )}
-            <Progress
-                status={data.status}
-                percent={(data.total / 100) * data.processed}
-                size="small"
-            ></Progress>
             <Button type="primary" onClick={handleSendMessage}>
                 Run Step
             </Button>
