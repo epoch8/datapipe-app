@@ -67,7 +67,7 @@ const RunStepWebSocketComponent: FC<RunStepWebSocketComponentProps> = ({
             `${process.env["REACT_APP_WEBSOCKET_URL"]}${transform}/run-status`,
         );
         setWs(ws);
-        ws.onopen = () => {};
+        ws.onopen = () => { };
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             let status: "active" | "success" | undefined;
@@ -559,13 +559,13 @@ const Table: FC<TableProps> = ({ current, setAlertMsg }) => {
                     tableFocus && current.id !== tableFocus.table_name
                         ? undefined
                         : {
-                              type: "checkbox",
-                              selectedRowKeys: tableFocus
-                                  ? tableFocus.keys
-                                  : [],
-                              preserveSelectedRowKeys: true,
-                              ...rowSelection,
-                          }
+                            type: "checkbox",
+                            selectedRowKeys: tableFocus
+                                ? tableFocus.keys
+                                : [],
+                            preserveSelectedRowKeys: true,
+                            ...rowSelection,
+                        }
                 }
                 size="small"
                 pagination={{

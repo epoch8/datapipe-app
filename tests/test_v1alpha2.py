@@ -1,11 +1,11 @@
 import typing as t
 
-from fastapi.testclient import TestClient
-import pytest
-
-from datapipe.compute import run_steps
-from datapipe_app.datapipe_api import DatapipeAPI
 import pandas as pd
+import pytest
+from datapipe.compute import run_steps
+from fastapi.testclient import TestClient
+
+from datapipe_app.datapipe_api import DatapipeAPI
 
 
 def test_graph_works(app):

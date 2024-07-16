@@ -135,49 +135,44 @@ function Cy() {
                     if (data.type === "table") {
                         return `
               <div class="node-core" style="width: ${Math.max(
-                  data.name.length * 10,
-                  (data.indexes || []).join(", ").length * 6,
-              )}; height: 70px">
+                            data.name.length * 10,
+                            (data.indexes || []).join(", ").length * 6,
+                        )}; height: 70px">
                   <div class="icon icon-table"></div>
                   <div class="name">${data.name}</div>
-                  ${
-                      data.indexes
-                          ? `<div class="indexes">${data.indexes.join(
-                                ", ",
-                            )}</div>`
-                          : ""
-                  }
-                  ${
-                      data.size
-                          ? `<div class="indexes">size: ${data.size}</div>`
-                          : ""
-                  }
-                  ${
-                      data.store_class
-                          ? `<div class="store">${data.store_class}</div>`
-                          : ""
-                  }
+                  ${data.indexes
+                                ? `<div class="indexes">${data.indexes.join(
+                                    ", ",
+                                )}</div>`
+                                : ""
+                            }
+                  ${data.size
+                                ? `<div class="indexes">size: ${data.size}</div>`
+                                : ""
+                            }
+                  ${data.store_class
+                                ? `<div class="store">${data.store_class}</div>`
+                                : ""
+                            }
               </div>
             `;
                     } else {
                         return `
               <div class="node-core" style="width: ${Math.max(
-                  data.name.length * 10,
-                  (data.indexes || []).join(", ").length * 6,
-              )}; height: 70px">
+                            data.name.length * 10,
+                            (data.indexes || []).join(", ").length * 6,
+                        )}; height: 70px">
                   <div class="name">${data.name}</div>
-                  ${
-                      data.indexes
-                          ? `<div class="indexes">${data.indexes.join(
-                                ", ",
-                            )}</div>`
-                          : ""
-                  }
-                  ${
-                      data.total_idx_count | data.changed_idx_count
-                          ? `<div class="indexes">total/changed: ${data.total_idx_count}/${data.changed_idx_count}</div>`
-                          : ""
-                  }
+                  ${data.indexes
+                                ? `<div class="indexes">${data.indexes.join(
+                                    ", ",
+                                )}</div>`
+                                : ""
+                            }
+                  ${data.total_idx_count | data.changed_idx_count
+                                ? `<div class="indexes">total/changed: ${data.total_idx_count}/${data.changed_idx_count}</div>`
+                                : ""
+                            }
                   <div class="transform-type">${data.transform_type}</div>
               </div>
             `;
