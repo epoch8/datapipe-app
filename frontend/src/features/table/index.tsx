@@ -74,6 +74,7 @@ const RunStepWebSocketComponent: FC<RunStepWebSocketComponentProps> = ({
             let total: number = 0;
             if (msg.status === "not found" || msg.status === "not allowed") {
                 setAlertMsg(msg.status);
+                return;
             }
             if (msg.status === "starting" || msg.status === "running") {
                 status = "active";
