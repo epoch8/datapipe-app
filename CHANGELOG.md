@@ -1,5 +1,11 @@
 # WIP
 
+## Major changes
+* Added `/api/v1alpha2` API
+* Add transform view to UI
+* Add Ability to run transform step from UI with and without filters
+
+## Improvements
 * Add setting `DATAPIPE_APP_SHOW_STEP_STATUS` to control prometheus metrics, it
   can be slow on large graphs
 

@@ -67,9 +67,7 @@ def agg_profile(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         res.append(
             {
                 "user_id": user_id,
-                "offer_clicks": [
-                    x["offer_id"] for x in grp["event"] if x["event_type"] == "click"
-                ],
+                "offer_clicks": [x["offer_id"] for x in grp["event"] if x["event_type"] == "click"],
                 "events_count": len(grp),
                 "active": True,
             }

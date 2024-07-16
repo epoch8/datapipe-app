@@ -1,14 +1,14 @@
-import React from 'react';
-import './App.css';
+import React from "react";
+import "./App.css";
 import "antd/dist/antd.css";
-import { Cy } from './features';
+import { Cy } from "./features";
 
 function App() {
-  return (
-    <>
-      <Cy />
-    </>
-  );
+    return (
+        <>
+            <Cy />
+        </>
+    );
 }
 
 export default App;
