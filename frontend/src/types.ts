@@ -96,6 +96,9 @@ interface FilterDropDownComponentProps {
 
 interface RunStepWebSocketComponentProps {
     transform: string;
+    setAlertMsg: Dispatch<SetStateAction<AlertProps | null>>;
+    tableFocus: FocusType | null | undefined;
+    setDataIsProcessed: Dispatch<SetStateAction<boolean>>;
 }
 
 interface TableProps {
@@ -105,6 +108,18 @@ interface TableProps {
 
 interface listOfSelectedColumnsProps {
     tableFocus: FocusType | null;
+}
+
+interface RunStepRequestProps {
+    transform: string;
+    operation: "run-step";
+    filters: IdxRow[] | null;
+}
+
+interface RunStepResponseProps {
+    status: "active" | "normal" | "exception" | "success" | undefined;
+    processed: number;
+    total: number;
 }
 
 type Node = MetaNode | TransformNode;
@@ -124,4 +139,6 @@ export type {
     RunStepWebSocketComponentProps,
     TableProps,
     listOfSelectedColumnsProps,
+    RunStepRequestProps,
+    RunStepResponseProps,
 };

@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Cytoscape from "cytoscape";
 import CytoscapeComponent from "react-cytoscapejs";
 import "cytoscape-context-menus/cytoscape-context-menus.css";
@@ -13,48 +13,12 @@ import "./style.css";
 import { reprocessData } from "./process";
 import { stylesheet } from "./stylesheet";
 import { Table } from "../table";
-import { Alert, AlertProps, Button, Drawer, Progress, Spin } from "antd";
-import { PipeTable, RunStepWebSocketComponentProps } from "../../types";
+import { Alert, AlertProps, Drawer, Spin } from "antd";
+import { PipeTable } from "../../types";
 
 Cytoscape.use(nodeHtmlLabel);
 Cytoscape.use(dagre);
 Cytoscape.use(contextMenus);
-
-const RunStepWebSocketComponent: FC<RunStepWebSocketComponentProps> = (
-    transform,
-) => {
-    const [socket, setSocket] = useState<WebSocket | null>(null);
-    const [data, setData] = useState<any[]>([]);
-    const [status, setStatus] = useState<
-        "active" | "normal" | "exception" | "success" | undefined
-    >("active");
-
-    useEffect(() => {
-        const ws = new WebSocket(
-            `${process.env["REACT_APP_RUN_STEP_URL"]}${transform}/run-status`,
-        );
-        setSocket(ws);
-
-        ws.onmessage = (event) => {
-            setData((prevMessages) => [...prevMessages, event.data]);
-        };
-
-        ws.onerror = (event) => {
-            setStatus("exception");
-            console.error("WebSocket error:", event);
-        };
-
-        return () => {
-            ws.close();
-        };
-    }, []);
-
-    return (
-        <>
-            <Progress status={status} size="small"></Progress>
-        </>
-    );
-};
 
 function Cy() {
     const [drawerWidth, setWidth] = useState(600);
@@ -66,8 +30,6 @@ function Cy() {
     const [loading, setLoading] = useState(false);
     const [cy, setCy] = useState<Cytoscape.Core>();
     const [alertMsg, setAlertMsg] = useState<AlertProps | null>(null);
-    const [currentStep, isCurrentStep] = useState<string>("");
-    const [isWebSocket, setIsWebSocket] = useState<boolean>(false);
 
     const closeAlert = () => {
         setAlertMsg(null);
@@ -77,7 +39,7 @@ function Cy() {
         async function loadGraph() {
             setLoading(true);
             const response = await fetch(
-                `http://localhost:3001${process.env["REACT_APP_GET_GRAPH_URL"]}` as string,
+                process.env["REACT_APP_GET_GRAPH_URL"] as string,
             );
             const data = await response.json();
             const { nodes, edges } = reprocessData(data);
@@ -235,15 +197,12 @@ function Cy() {
                     afterClose={closeAlert}
                 />
             )}
-            {isWebSocket && (
-                <RunStepWebSocketComponent transform={currentStep} />
-            )}
             {loading && <Spin className="spin" spinning={true} />}
-            {!loading && (
+            {/* {!loading && (
                 <Button className="pipeline-btn" type="primary">
                     Run Pipeline
                 </Button>
-            )}
+            )} */}
             <Drawer
                 mask={false}
                 autoFocus={false}

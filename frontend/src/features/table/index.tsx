@@ -15,7 +15,7 @@ import {
     Input,
     Space,
     InputRef,
-    AlertProps,
+    Progress,
 } from "antd";
 import { ColumnsType } from "antd/lib/table";
 import ReactJson from "react-json-view";
@@ -31,8 +31,106 @@ import {
     IdxRow,
     TableProps,
     listOfSelectedColumnsProps,
+    RunStepRequestProps,
+    RunStepResponseProps,
+    RunStepWebSocketComponentProps,
 } from "../../types";
 import { FilterValue, SorterResult } from "antd/lib/table/interface";
+
+const RunStepWebSocketComponent: FC<RunStepWebSocketComponentProps> = ({
+    transform,
+    setAlertMsg,
+    tableFocus,
+    setDataIsProcessed,
+}) => {
+    const [data, setData] = useState<RunStepResponseProps>({
+        status: undefined,
+        processed: 0,
+        total: 100,
+    });
+    const [ws, setWs] = useState<WebSocket | null>(null);
+
+    const handleSendMessage = () => {
+        const payload: RunStepRequestProps = {
+            transform: transform,
+            operation: "run-step",
+            filters: tableFocus?.indexes || null,
+        };
+        if (ws) {
+            ws.send(JSON.stringify(payload));
+        }
+    };
+
+    useEffect(() => {
+        const ws = new WebSocket(
+            `${process.env["REACT_APP_WEBSOCKET_URL"]}${transform}/run-status`,
+        );
+        setWs(ws);
+        ws.onopen = () => {};
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            let status: "active" | "success" | undefined;
+            let processed: number = 0;
+            let total: number = 0;
+            if (msg.status === "not found" || msg.status === "not allowed") {
+                setAlertMsg(msg.status);
+            }
+            if (msg.status === "starting" || msg.status === "running") {
+                status = "active";
+                processed = msg.processed;
+                total = msg.total;
+            } else {
+                processed = 100;
+                total = 100;
+                status = "success";
+                setDataIsProcessed(true);
+            }
+            const runStepResponse: RunStepResponseProps = {
+                status: status,
+                processed: processed,
+                total: total,
+            };
+            setData(runStepResponse);
+        };
+
+        ws.onerror = (event) => {
+            const runStepError: RunStepResponseProps = {
+                status: "exception",
+                processed: data.processed,
+                total: data.total,
+            };
+            setData(runStepError);
+            console.error("WebSocket error:", event);
+        };
+
+        ws.onclose = () => {
+            console.log("WebSocket closed");
+        };
+
+        return () => {
+            ws.close();
+        };
+    }, [transform]);
+
+    return (
+        <>
+            {data.status === "active" && (
+                <>
+                    <div>Total: {data.total}</div>
+                    <div>Processed: {data.processed}</div>
+                </>
+            )}
+            <Progress
+                status={data.status}
+                percent={(data.total / 100) * data.processed}
+                size="small"
+            ></Progress>
+            <Button type="primary" onClick={handleSendMessage}>
+                Run Step
+            </Button>
+        </>
+    );
+};
 
 const FilterDropDownComponent: FC<FilterDropDownComponentProps> = ({
     searchInput,
@@ -200,7 +298,7 @@ const loadTable = async (
         } else {
             reqUrl = process.env["REACT_APP_GET_TABLE_URL"] as string;
         }
-        const response = await fetch(`http://localhost:3001${reqUrl}`, {
+        const response = await fetch(reqUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -307,33 +405,9 @@ const Table: FC<TableProps> = ({ current, setAlertMsg }) => {
     const [filteredInfo, setFilteredInfo] = useState<
         Record<string, FilterValue | null>
     >({});
+    const [dataIsProcessed, setDataIsProcessed] = useState<boolean>(false);
     const skipRenderFlag = useRef(true);
     const searchInput = useRef<InputRef>(null);
-
-    const sendRunStep = async () => {
-        const body = {
-            transform: current.id,
-            filters: tableFocus?.indexes,
-        };
-        const response = await fetch(
-            `http://localhost:3001${process.env["REACT_APP_RUN_STEP_URL"]}` as string,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(body),
-            },
-        );
-        const data = await response.json();
-        if (response.status === 200) {
-            const tmp = { message: data.status, type: "info" } as AlertProps;
-            setAlertMsg(tmp);
-        } else {
-            const tmp = { message: data.detail, type: "error" } as AlertProps;
-            setAlertMsg(tmp);
-        }
-    };
 
     const rowSelection = {
         onChange: (selectedRowKeys: React.Key[], selectedRows: any[]) => {
@@ -415,10 +489,18 @@ const Table: FC<TableProps> = ({ current, setAlertMsg }) => {
             },
             tableFocus,
         );
-    }, [filteredInfo, tableFocus, pagination]);
+    }, [filteredInfo, tableFocus, pagination, dataIsProcessed]);
 
     return (
         <>
+            {current.type === "transform" && (
+                <RunStepWebSocketComponent
+                    transform={current.id}
+                    setAlertMsg={setAlertMsg}
+                    tableFocus={tableFocus}
+                    setDataIsProcessed={setDataIsProcessed}
+                />
+            )}
             <div
                 style={{
                     height: tableFocus ? "fit-content" : 1,
@@ -441,24 +523,10 @@ const Table: FC<TableProps> = ({ current, setAlertMsg }) => {
                             <Button size="small" onClick={clearFocus}>
                                 Clear
                             </Button>
-                            {current.type === "transform" && (
-                                <Button
-                                    size="small"
-                                    type="primary"
-                                    onClick={sendRunStep}
-                                >
-                                    Run Step
-                                </Button>
-                            )}
                         </Space>
                     </>
                 )}
             </div>
-            {!tableFocus && current.type === "transform" && (
-                <Button type="primary" onClick={sendRunStep}>
-                    Run Step
-                </Button>
-            )}
             {Object.values(filteredInfo).length > 0 &&
                 (!data || data.length === 0) && (
                     <Button
