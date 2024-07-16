@@ -79,9 +79,7 @@ class GetDataResponse(BaseModel):
     data: List[Dict]
 
 
-def filter_steps_by_labels(
-    steps: List[ComputeStep], labels: Labels = [], name_prefix: str = ""
-) -> List[ComputeStep]:
+def filter_steps_by_labels(steps: List[ComputeStep], labels: Labels = [], name_prefix: str = "") -> List[ComputeStep]:
     res = []
     for step in steps:
         for k, v in labels:
@@ -121,9 +119,7 @@ def update_data(
     #     cl.append(dt.name, idx)
     if enable_changelist:
         if background:
-            background_tasks.add_task(
-                run_steps_changelist, ds=ds, steps=steps, changelist=cl
-            )
+            background_tasks.add_task(run_steps_changelist, ds=ds, steps=steps, changelist=cl)
         else:
             run_steps_changelist(ds=ds, steps=steps, changelist=cl)
 
@@ -150,10 +146,7 @@ def get_data_get_pd(
     if filters is not None:
         sql = sql.where(
             and_(
-                *[
-                    meta_tbl.c[column].in_(filters[column])
-                    for column in filters.columns
-                ],
+                *[meta_tbl.c[column].in_(filters[column]) for column in filters.columns],
                 meta_tbl.c["delete_ts"].is_(None),
             )
         )
@@ -221,9 +214,7 @@ def get_data_get(
     )
 
 
-def get_data_post(
-    ds: DataStore, catalog: Catalog, req: GetDataRequest
-) -> GetDataResponse:
+def get_data_post(ds: DataStore, catalog: Catalog, req: GetDataRequest) -> GetDataResponse:
     dt = catalog.get_datatable(ds, req.table)
 
     assert isinstance(dt.table_store, TableStoreDB)
@@ -268,9 +259,7 @@ def get_data_post(
         )
 
 
-def make_app(
-    ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]
-) -> FastAPI:
+def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[ComputeStep]) -> FastAPI:
     app = FastAPI()
 
     @app.get("/graph", response_model=GraphResponse)
@@ -314,10 +303,7 @@ def make_app(
                 )
 
         return GraphResponse(
-            catalog={
-                table_name: table_response(table_name)
-                for table_name in catalog.catalog.keys()
-            },
+            catalog={table_name: table_response(table_name) for table_name in catalog.catalog.keys()},
             pipeline=[pipeline_step_response(step) for step in steps],
         )
 
@@ -368,29 +354,20 @@ def make_app(
 
         if req.focus is not None:
             idx = pd.DataFrame.from_records(
-                [
-                    {
-                        k: v
-                        for item in req.focus.items_idx
-                        for k, v in item.items()
-                        if k in dt.primary_keys
-                    }
-                ]
+                [{k: v for item in req.focus.items_idx for k, v in item.items() if k in dt.primary_keys}]
             ).dropna()
         else:
             idx = None
 
         existing_idx = dt.meta_table.get_existing_idx(idx=idx)
 
+        start_index = req.page * req.page_size
+        end_index = (req.page + 1) * req.page_size
         return GetDataResponse(
             page=req.page,
             page_size=req.page_size,
             total=len(existing_idx),
-            data=dt.get_data(
-                existing_idx.iloc[
-                    req.page * req.page_size : (req.page + 1) * req.page_size
-                ]
-            ).to_dict(orient="records"),
+            data=dt.get_data(existing_idx.iloc[start_index:end_index]).to_dict(orient="records"),
         )
 
     class GetDataByIdxRequest(BaseModel):
@@ -417,9 +394,7 @@ def make_app(
         background_tasks: BackgroundTasks,
         table_name: str = Query(..., title="Input table name"),
         data_field: List = Query(..., title="Fields to get from data"),
-        background: bool = Query(
-            False, title="Run as Background Task (default = False)"
-        ),
+        background: bool = Query(False, title="Run as Background Task (default = False)"),
     ) -> UpdateDataResponse:
         upsert = [
             {
