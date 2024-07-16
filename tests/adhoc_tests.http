@@ -1,14 +1,23 @@
-GET http://127.0.0.1:8000/api/v1alpha1/graph
+@host = https://datapipe-example-api-hzkr3iwwhq-ez.a.run.app/
+
+GET {{host}}/api/v1alpha2/graph
 
 ###
-POST http://127.0.0.1:8000/api/v1alpha1/get-data
+POST {{host}}/api/v1alpha1/update-data
 Content-Type: application/json
 
 {
-    "table": "events",
-    "page": 0,
-    "page_size": 4,
-    "filters": {
-        "event_id": "1"
-    }
+    "table_name": "events",
+    "upsert": [
+        {
+            "user_id": 1,
+            "event_id": 2,
+            "event": {
+                "event_type":"click",
+                "lang":"ru",
+                "offer_id":2
+            }
+        }
+    ],
+    "enable_changelist": false
 }
