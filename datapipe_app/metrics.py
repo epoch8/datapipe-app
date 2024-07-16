@@ -7,6 +7,8 @@ from prometheus_client.core import REGISTRY, GaugeMetricFamily
 from prometheus_client.registry import Collector
 from starlette_exporter import PrometheusMiddleware, handle_metrics
 
+from datapipe_app.settings import API_SETTINGS
+
 
 class PipelineStatusCollector(Collector):
     def __init__(
@@ -67,4 +69,5 @@ def setup_prometheus_metrics(
     )
     app.add_route("/metrics", handle_metrics)
 
-    REGISTRY.register(PipelineStatusCollector(datapipe_app))
+    if API_SETTINGS.show_step_status:
+        REGISTRY.register(PipelineStatusCollector(datapipe_app))
