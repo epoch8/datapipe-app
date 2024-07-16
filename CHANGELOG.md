@@ -1,5 +1,6 @@
 # WIP
 
+* Added `/api/v1alpha2`
 * Add transform view to UI
 * Add Ability to run transform step from UI with and without filters
 
