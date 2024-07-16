@@ -9,7 +9,7 @@ from datapipe.compute import Catalog, ComputeStep, DataStore, Pipeline, run_step
 from datapipe.run_config import RunConfig
 from datapipe.step.batch_transform import BaseBatchTransformStep
 from datapipe.store.database import TableStoreDB
-from datapipe.types import Labels, IndexDF
+from datapipe.types import IndexDF, Labels
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from sqlalchemy.sql.expression import and_, or_, select, text
@@ -185,7 +185,10 @@ class RunningStepsHelper(Dict[str, models.RunStepResponse]):
 
 
 def run_step(
-    ds: DataStore, step: BaseBatchTransformStep, transform_state: models.RunStepResponse, filters: List[Dict] | None
+    ds: DataStore,
+    step: BaseBatchTransformStep,
+    transform_state: models.RunStepResponse,
+    filters: Optional[List[Dict]],
 ) -> None:
     # Before we progress callback to datapipe-core we need to do this shenanigans 💀
     _step = copy.copy(step)
