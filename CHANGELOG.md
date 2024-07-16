@@ -1,3 +1,8 @@
+# WIP
+
+* Add setting `DATAPIPE_APP_SHOW_STEP_STATUS` to control prometheus metrics, it
+  can be slow on large graphs
+
 # 0.4.6
 
 * Add setting `DATAPIPE_APP_SHOW_STEP_STATUS` to control whether UI shows
