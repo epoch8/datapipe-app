@@ -57,7 +57,7 @@ def setup_prometheus_metrics(
         PrometheusMiddleware,
         app_name=app_name,
         prefix="datapipe_api",
-        buckets=[0.1, 0.5, 1, 5, 15, 30],
+        buckets=[0.1, 0.5, 1, 2, 3, 4, 5, 15, 30],
         skip_paths=[
             "/healthz",
             "/metrics",
