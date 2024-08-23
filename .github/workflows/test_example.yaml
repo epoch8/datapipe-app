@@ -1,0 +1,42 @@
+name: Run tests
+
+on:
+  push:
+    paths:
+      - ".github/workflows/test_example.yaml"
+      - "datapipe_app/**"
+      - "example/**"
+      - "pyproject.toml"
+
+jobs:
+  test-examples:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          # - "3.8"
+          # - "3.9"
+          - "3.10"
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      
+      - name: Install poetry
+        run: |
+          pip install poetry==1.8.3
+
+      - name: Install dependencies
+        run: |
+          poetry install --all-extras
+
+      - name: Test example
+        run: |
+          cd example
+          poetry run datapipe db create-all
+          poetry run datapipe run

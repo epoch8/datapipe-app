@@ -1,27 +1,18 @@
-name: Run tests
+name: Lint code
 
 on:
   push:
     paths:
-      - ".github/workflows/test.yaml"
+      - ".github/workflows/lint.yaml"
       - "datapipe_app/**"
       - "pyproject.toml"
 
 jobs:
-  lint-and-test:
+  lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - python-version: "3.9"
-            pip-extra: '"sqlalchemy >2" "pandas >=2.2"'
-          # We know it fails
-          # - python-version: "3.10"
-          #   pip-extra: '"sqlalchemy <2" "pandas >=2.2"'
-          - python-version: "3.11"
-            pip-extra: '"sqlalchemy <2" "pandas <2.2"'
-          - python-version: "3.11"
-            pip-extra: '"sqlalchemy >2" "pandas <2.2"'
           - python-version: "3.11"
             pip-extra: '"sqlalchemy >2" "pandas >=2.2"'
 
@@ -38,6 +29,13 @@ jobs:
         run: |
           pip install ${{ matrix.pip-extra }} "." "datapipe-core[sqlite]==0.14.0-alpha.2" "httpx" "pytest<8" "mypy" "flake8"
 
-      - name: Test with pytest
+      - name: Lint with flake8
         run: |
-          pytest
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Lint with mypy
+        run: |
+          mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages
