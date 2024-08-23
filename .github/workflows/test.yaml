@@ -8,7 +8,7 @@ on:
       - "pyproject.toml"
 
 jobs:
-  lint-and-test:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
