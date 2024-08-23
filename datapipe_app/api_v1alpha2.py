@@ -234,7 +234,8 @@ def run_step(
 
             return idx_total, updating_idx_gen()
 
-    _step.get_full_process_ids = get_full_process_ids
+    # FIXME this should not be necessary
+    _step.get_full_process_ids = get_full_process_ids  # type: ignore
     run_steps(ds=ds, steps=[_step])
 
 
@@ -331,20 +332,23 @@ def make_app(
                 filtered_steps = filter_steps_by_labels(steps, name_prefix=transform)
                 if len(filtered_steps) != 1:
                     await websocket.send_json({"status": "not found"})
+
                 step = filtered_steps[0]
                 if not isinstance(step, BaseBatchTransformStep):
                     await websocket.send_json({"status": "not allowed"})
-                _running_steps_helper[transform] = models.RunStepResponse(
-                    status="starting",
-                    processed=0,
-                    total=0,
-                )
-                _ = asyncio.create_task(_running_steps_helper.update_transform_status(transform=transform))
-                run_step_thread = asyncio.to_thread(
-                    run_step, ds, step, _running_steps_helper[transform], json_data.filters
-                )
-                run_steps_task = asyncio.create_task(run_step_thread)
-                run_steps_task.add_done_callback(lambda _: _running_steps_helper.set_job_as_finished(transform))
+
+                else:
+                    _running_steps_helper[transform] = models.RunStepResponse(
+                        status="starting",
+                        processed=0,
+                        total=0,
+                    )
+                    _ = asyncio.create_task(_running_steps_helper.update_transform_status(transform=transform))
+                    run_step_thread = asyncio.to_thread(
+                        run_step, ds, step, _running_steps_helper[transform], json_data.filters
+                    )
+                    run_steps_task = asyncio.create_task(run_step_thread)
+                    run_steps_task.add_done_callback(lambda _: _running_steps_helper.set_job_as_finished(transform))
         except WebSocketDisconnect:
             _running_steps_helper.remove_ws(websocket, transform)
 
