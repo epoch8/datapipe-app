@@ -23,11 +23,11 @@ Where `pipeline` is a module that defines common elements: `ds`, `catalog` and
 
 ## REST API + UI
 
-`DatapipeApp` inherits from `FastApi` app and can be started with server like
-`uvicorn`.
+`DatapipeApp` inherits from `FastApi` app and can be started with datapipe CLI
+or directly with server like `uvicorn`.
 
 ```
-uvicorn app:app
+datapipe --pipeline app:app api
 ```
 
 ### UI
@@ -37,26 +37,3 @@ uvicorn app:app
 ### REST API
 
 API documentation can be found at `/api/v1alpha1/docs` sub URL.
-
-## CLI
-
-`datapipe` CLI tool implements useful operations.
-
-### run
-
-`datapipe run --pipeline app`
-
-Does full run of a specific pipeline.
-
-### table list
-
-`datapipe table list`
-
-Lists all tables in pipeline.
-
-### table reset-metadata
-
-`datapipe table reset-metadata TABLE`
-
-Resets metadata for a specific table: sets `updated_ts`, `processed_ts`, `hash`
-to `0`.
