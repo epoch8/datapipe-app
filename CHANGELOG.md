@@ -1,6 +1,6 @@
-# WIP
+# 0.5.1
 
-* Fixed an interface issue when opening the DatatableTransformStep
+* Fixed an interface issue when opening the `DatatableTransformStep`
 
 # 0.5.0
 
