@@ -17,14 +17,14 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.9,<3.12"
 fastapi = ">=0.69.0"
 uvicorn = {extras = ["standard"], version = ">= 0.17.0"}
 click = ">=7.1.2"
 rich = "^13.3.2"
 pydantic-settings = ">=2.0.0"
 
-datapipe-core = { version = ">=0.14.0-alpha.1", allow-prereleases = true }
+datapipe-core = ">=0.13.13"
 # datapipe-core = {version = ">=0.13.13-dev.1", extras = ["sqlite"], allow-prereleases = true}
 # datapipe-core = {path="../datapipe", develop=true}
 # datapipe-core = {git = "https://github.com/epoch8/datapipe.git", branch = "pipeline-monitoring", allow-prereleases = true}
@@ -44,7 +44,7 @@ jaeger = ["opentelemetry-exporter-jaeger"]
 datapipe_app = "datapipe_app.cli:register_commands"
 
 [tool.poetry.group.dev.dependencies]
-datapipe-core = {version="*", extras=["sqlite"], allow-prereleases = true}
+datapipe-core = {version="*", extras=["sqlite"]}
 # datapipe-core = {version="*", extras=["sqlite"], allow-prereleases = true}
 
 mypy = "*"
