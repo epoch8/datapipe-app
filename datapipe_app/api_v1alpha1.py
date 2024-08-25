@@ -157,6 +157,8 @@ def get_data_get_pd(
         total_count = conn.execute(sql_count).scalar()
 
     assert total_count is not None
+
+    data_df: pd.DataFrame
     if page * page_size > total_count:
         meta_df = pd.DataFrame(columns=[x.name for x in meta_schema])  # type: ignore
         data_df = dt.get_data(cast(IndexDF, meta_df))
@@ -245,7 +247,7 @@ def get_data_post(ds: DataStore, catalog: Catalog, req: GetDataRequest) -> GetDa
     )
 
     if not meta_df.empty:
-        data_df = dt.get_data(cast(IndexDF, meta_df))
+        data_df: pd.DataFrame = dt.get_data(cast(IndexDF, meta_df))
         if req.order_by is not None:
             ascending = req.order == "asc"
             data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
@@ -370,11 +372,12 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
 
         start_index = req.page * req.page_size
         end_index = (req.page + 1) * req.page_size
+        data_df: pd.DataFrame = dt.get_data(cast(IndexDF, existing_idx.iloc[start_index:end_index]))
         return GetDataResponse(
             page=req.page,
             page_size=req.page_size,
             total=len(existing_idx),
-            data=dt.get_data(cast(IndexDF, existing_idx.iloc[start_index:end_index])).to_dict(orient="records"),
+            data=data_df.to_dict(orient="records"),
         )
 
     class GetDataByIdxRequest(BaseModel):
@@ -385,7 +388,7 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
     def get_data_by_idx(req: GetDataByIdxRequest):
         dt = catalog.get_datatable(ds, req.table_name)
 
-        res = dt.get_data(idx=cast(IndexDF, pd.DataFrame.from_records(req.idx)))
+        res: pd.DataFrame = dt.get_data(idx=cast(IndexDF, pd.DataFrame.from_records(req.idx)))
 
         return res.to_dict(orient="records")
 
