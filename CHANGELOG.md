@@ -1,3 +1,7 @@
+# 0.5.2
+
+* Update static files
+
 # 0.5.1
 
 * Fixed an interface issue when opening the `DatatableTransformStep`
