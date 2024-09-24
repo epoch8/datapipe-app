@@ -18,11 +18,11 @@ jobs:
           # We know it fails
           # - python-version: "3.10"
           #   pip-extra: '"sqlalchemy <2" "pandas >=2.2"'
-          - python-version: "3.11"
+          - python-version: "3.12"
             pip-extra: '"sqlalchemy <2" "pandas <2.2"'
-          - python-version: "3.11"
+          - python-version: "3.12"
             pip-extra: '"sqlalchemy >2" "pandas <2.2"'
-          - python-version: "3.11"
+          - python-version: "3.12"
             pip-extra: '"sqlalchemy >2" "pandas >=2.2"'
 
     steps:
