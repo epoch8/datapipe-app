@@ -1,3 +1,7 @@
+# 0.5.3
+
+* Add python 3.12 support
+
 # 0.5.2
 
 * Update static files
