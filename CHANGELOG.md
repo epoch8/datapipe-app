@@ -1,3 +1,7 @@
+# 0.5.4
+
+* Improve granularity of prometheus metrics latency buckets
+
 # 0.5.3
 
 * Add python 3.12 support
