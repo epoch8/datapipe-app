@@ -18,7 +18,7 @@ click = ">=7.1.2"
 rich = "^13.3.2"
 pydantic-settings = ">=2.0.0"
 
-datapipe-core = ">=0.13.13, <0.15"
+datapipe-core = ">=0.14.1, <0.15"
 # datapipe-core = {version = ">=0.13.13-dev.1", extras = ["sqlite"], allow-prereleases = true}
 # datapipe-core = {path="../datapipe", develop=true}
 # datapipe-core = {git = "https://github.com/epoch8/datapipe.git", branch = "pipeline-monitoring", allow-prereleases = true}

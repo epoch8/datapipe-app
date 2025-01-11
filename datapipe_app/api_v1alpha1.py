@@ -270,7 +270,7 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
 
     @app.get("/graph", response_model=GraphResponse)
     def get_graph() -> GraphResponse:
-        def table_response(table_name):
+        def table_response(table_name) -> TableResponse:
             tbl = catalog.get_datatable(ds, table_name)
 
             return TableResponse(
@@ -280,8 +280,8 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
                 store_class=tbl.table_store.__class__.__name__,
             )
 
-        def pipeline_step_response(step: ComputeStep):
-            inputs = [i.name for i in step.input_dts]
+        def pipeline_step_response(step: ComputeStep) -> PipelineStepResponse:
+            inputs = [i.dt.name for i in step.input_dts]
             outputs = [i.name for i in step.output_dts]
 
             if isinstance(step, BaseBatchTransformStep):

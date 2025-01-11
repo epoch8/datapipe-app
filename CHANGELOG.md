@@ -1,6 +1,7 @@
 # 0.5.4
 
 * Improve granularity of prometheus metrics latency buckets
+* Fix `datapipe-core >= 0.14.1` compatibility
 
 # 0.5.3
 
