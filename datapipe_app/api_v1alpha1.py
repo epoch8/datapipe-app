@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
 import pandas as pd
 from datapipe.compute import (
@@ -141,7 +141,7 @@ def get_data_get_pd(
     meta_schema = dt.meta_table.sql_schema
     meta_tbl = dt.meta_table.sql_table
 
-    sql: Any = select(*meta_schema)
+    sql: Any = select(*meta_schema)  # type: ignore
     sql = sql.where(meta_tbl.c.delete_ts.is_(None))
     if filters is not None:
         sql = sql.where(
@@ -155,9 +155,13 @@ def get_data_get_pd(
     sql_count = select(count()).select_from(sql)
     with ds.meta_dbconn.con.begin() as conn:
         total_count = conn.execute(sql_count).scalar()
+
+    assert total_count is not None
+
+    data_df: pd.DataFrame
     if page * page_size > total_count:
-        meta_df = pd.DataFrame(columns=[x.name for x in meta_schema])
-        data_df = dt.get_data(meta_df)
+        meta_df = pd.DataFrame(columns=[x.name for x in meta_schema])  # type: ignore
+        data_df = dt.get_data(cast(IndexDF, meta_df))
     else:
         if order_by is not None:
             if order == "asc":
@@ -175,10 +179,10 @@ def get_data_get_pd(
         )
 
         if not meta_df.empty:
-            data_df = dt.get_data(meta_df)
+            data_df = dt.get_data(cast(IndexDF, meta_df))
             data_df = meta_df.merge(data_df)[data_df.columns]  # save order
         else:
-            data_df = pd.DataFrame(columns=[x.name for x in meta_schema])
+            data_df = pd.DataFrame(columns=[x.name for x in meta_schema])  # type: ignore
 
     return total_count, meta_df, data_df
 
@@ -243,7 +247,7 @@ def get_data_post(ds: DataStore, catalog: Catalog, req: GetDataRequest) -> GetDa
     )
 
     if not meta_df.empty:
-        data_df = dt.get_data(meta_df)
+        data_df: pd.DataFrame = dt.get_data(cast(IndexDF, meta_df))
         if req.order_by is not None:
             ascending = req.order == "asc"
             data_df.sort_values(by=req.order_by, ascending=ascending, inplace=True)
@@ -251,10 +255,12 @@ def get_data_post(ds: DataStore, catalog: Catalog, req: GetDataRequest) -> GetDa
         data_df = pd.DataFrame()
 
     with dt.table_store.dbconn.con.begin() as conn:
+        total_res = conn.execute(sql_count).fetchone()
+        assert total_res is not None
         return GetDataResponse(
             page=req.page,
             page_size=req.page_size,
-            total=conn.execute(sql_count).fetchone()[0],
+            total=total_res[0],
             data=data_df.fillna("").to_dict(orient="records"),
         )
 
@@ -353,9 +359,12 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
         dt = catalog.get_datatable(ds, req.table_name)
 
         if req.focus is not None:
-            idx = pd.DataFrame.from_records(
-                [{k: v for item in req.focus.items_idx for k, v in item.items() if k in dt.primary_keys}]
-            ).dropna()
+            idx = cast(
+                IndexDF,
+                pd.DataFrame.from_records(
+                    [{k: v for item in req.focus.items_idx for k, v in item.items() if k in dt.primary_keys}]
+                ).dropna(),
+            )
         else:
             idx = None
 
@@ -363,11 +372,12 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
 
         start_index = req.page * req.page_size
         end_index = (req.page + 1) * req.page_size
+        data_df: pd.DataFrame = dt.get_data(cast(IndexDF, existing_idx.iloc[start_index:end_index]))
         return GetDataResponse(
             page=req.page,
             page_size=req.page_size,
             total=len(existing_idx),
-            data=dt.get_data(existing_idx.iloc[start_index:end_index]).to_dict(orient="records"),
+            data=data_df.to_dict(orient="records"),
         )
 
     class GetDataByIdxRequest(BaseModel):
@@ -378,7 +388,7 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
     def get_data_by_idx(req: GetDataByIdxRequest):
         dt = catalog.get_datatable(ds, req.table_name)
 
-        res = dt.get_data(idx=pd.DataFrame.from_records(req.idx))
+        res: pd.DataFrame = dt.get_data(idx=cast(IndexDF, pd.DataFrame.from_records(req.idx)))
 
         return res.to_dict(orient="records")
 

@@ -1,3 +1,5 @@
+VERSION := $(shell poetry version -s)
+
 build-example:
 	docker build -f example/Dockerfile .
 
@@ -12,3 +14,10 @@ lint:
 	black --line-length=120 datapipe_app example
 	flake8 --max-line-length=120 datapipe_app
 	mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages
+
+release: build
+	git commit -am "Release v$(VERSION)"
+	git tag "v$(VERSION)"
+	git push origin "v$(VERSION)"
+	poetry build
+	poetry publish

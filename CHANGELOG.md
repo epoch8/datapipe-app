@@ -1,3 +1,15 @@
+# 0.5.3
+
+* Add python 3.12 support
+
+# 0.5.2
+
+* Update static files
+
+# 0.5.1
+
+* Fixed an interface issue when opening the `DatatableTransformStep`
+
 # 0.5.0
 
 ## Major changes

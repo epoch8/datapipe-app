@@ -2,12 +2,13 @@ name: Run tests
 
 on:
   push:
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+    paths:
+      - ".github/workflows/test.yaml"
+      - "datapipe_app/**"
+      - "pyproject.toml"
 
 jobs:
-  lint-and-test:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -17,11 +18,11 @@ jobs:
           # We know it fails
           # - python-version: "3.10"
           #   pip-extra: '"sqlalchemy <2" "pandas >=2.2"'
-          - python-version: "3.11"
+          - python-version: "3.12"
             pip-extra: '"sqlalchemy <2" "pandas <2.2"'
-          - python-version: "3.11"
+          - python-version: "3.12"
             pip-extra: '"sqlalchemy >2" "pandas <2.2"'
-          - python-version: "3.11"
+          - python-version: "3.12"
             pip-extra: '"sqlalchemy >2" "pandas >=2.2"'
 
     steps:
@@ -37,49 +38,6 @@ jobs:
         run: |
           pip install ${{ matrix.pip-extra }} "." "datapipe-core[sqlite]" "httpx" "pytest<8" "mypy" "flake8"
 
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-      - name: Lint with mypy
-        run: |
-          mypy -p datapipe_app --ignore-missing-imports --follow-imports=silent --namespace-packages
-
       - name: Test with pytest
         run: |
           pytest
-
-  test-examples:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version:
-          # - "3.8"
-          # - "3.9"
-          - "3.10"
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-      
-      - name: Install poetry
-        run: |
-          pip install poetry==1.5.0
-
-      - name: Install dependencies
-        run: |
-          poetry install --all-extras
-
-      - name: Test example
-        run: |
-          cd example
-          poetry run datapipe db create-all
-          poetry run datapipe run

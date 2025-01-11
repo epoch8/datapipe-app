@@ -113,9 +113,10 @@ function Cy() {
                 setVisible(false);
                 return;
             }
-            setCurrentTable(node.data());
-            setVisible(true);
-
+            if (node.data('transform_type') !== 'DatatableTransformStep') {  // TODO need to be able to handle this type of transformation
+                setCurrentTable(node.data());
+                setVisible(true);
+            }
             node.connectedEdges().forEach((edge: any) => {
                 if (edge.target().id() !== node.id()) {
                     edge.select();
