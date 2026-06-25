@@ -63,6 +63,10 @@ class UpdateDataResponse(BaseModel):
     result: str
 
 
+class RunWithLabelsRequest(BaseModel):
+    labels: Labels = []
+
+
 class GetDataRequest(BaseModel):
     table: str
     filters: Dict[str, Any] = {}
@@ -395,6 +399,11 @@ def make_app(ds: DataStore, catalog: Catalog, pipeline: Pipeline, steps: List[Co
     @app.post("/run")
     def run():
         run_steps(ds=ds, steps=steps)
+
+    @app.post("/run-with-labels")
+    def run_with_labels(req: RunWithLabelsRequest):
+        filtered_steps = filter_steps_by_labels(steps, labels=req.labels)
+        run_steps(ds=ds, steps=filtered_steps)
 
     # TODO refactor out to component based extension system
     # TODO automatic setup of webhook on project creation
